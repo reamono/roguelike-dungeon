@@ -8,7 +8,7 @@ export function calcDamage(attackerAtk, defenderDef) {
 }
 
 /**
- * プレイヤーの実効ステータスを計算（装備込み）
+ * プレイヤーの実効ステータスを計算（装備 + スキル込み）
  */
 export function getPlayerStats(player) {
   let attack = player.baseAttack
@@ -19,5 +19,43 @@ export function getPlayerStats(player) {
   if (player.equipment.shield) {
     defense += player.equipment.shield.stats.defense || 0
   }
+  // 鉄壁スキル
+  const skills = player.skills || []
+  if (skills.some((s) => s.id === 'iron_wall')) {
+    defense += 5
+  }
   return { attack, defense }
+}
+
+/**
+ * プレイヤー攻撃時のダメージ計算（スキル効果込み）
+ */
+export function calcPlayerDamage(attack, defenderDef, skills) {
+  let damage = calcDamage(attack, defenderDef)
+  let isCritical = false
+  let isFireSlash = false
+
+  // 火炎斬り: 常に 1.5 倍
+  if (skills.some((s) => s.id === 'fire_slash')) {
+    damage = Math.floor(damage * 1.5)
+    isFireSlash = true
+  }
+
+  // 会心の一撃: 20% で 2 倍
+  if (skills.some((s) => s.id === 'critical') && Math.random() < 0.2) {
+    damage = damage * 2
+    isCritical = true
+  }
+
+  return { damage: Math.max(1, damage), isCritical, isFireSlash }
+}
+
+/**
+ * 敵攻撃時の回避判定（見切りスキル）
+ */
+export function checkEvasion(skills) {
+  if (skills.some((s) => s.id === 'evasion') && Math.random() < 0.25) {
+    return true
+  }
+  return false
 }

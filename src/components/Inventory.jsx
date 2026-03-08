@@ -1,5 +1,5 @@
 export default function Inventory({ player, onUseItem, onClose }) {
-  const { inventory, equipment } = player
+  const { inventory, equipment, skills } = player
 
   return (
     <div className="inventory-overlay" onClick={onClose}>
@@ -24,6 +24,21 @@ export default function Inventory({ player, onUseItem, onClose }) {
             </span>
           </div>
         </div>
+
+        {/* 習得済みスキル */}
+        {skills && skills.length > 0 && (
+          <div className="skills-section">
+            <div className="skills-title">習得スキル</div>
+            <div className="skills-list">
+              {skills.map((s) => (
+                <div key={s.id} className="skill-tag" style={{ borderColor: s.color }}>
+                  <span className="skill-tag-icon">{s.icon}</span>
+                  <span className="skill-tag-name">{s.name}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* アイテム一覧 */}
         <div className="inv-list">

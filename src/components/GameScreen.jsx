@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import {
   createInitialState, movePlayer, descendStairs,
-  useItemFromInventory, restartGame,
+  useItemFromInventory, selectSkill, restartGame,
 } from '../game/GameState'
 import { useInput } from '../hooks/useInput'
 import Canvas from './Canvas'
@@ -9,6 +9,8 @@ import DPad from './DPad'
 import StatusPanel from './StatusPanel'
 import Inventory from './Inventory'
 import GameOverScreen from './GameOverScreen'
+import SkillSelectModal from './SkillSelectModal'
+import LevelUpFlash from './LevelUpFlash'
 
 export default function GameScreen() {
   const [state, setState] = useState(createInitialState)
@@ -26,6 +28,10 @@ export default function GameScreen() {
     setState((prev) => useItemFromInventory(prev, itemId))
   }, [])
 
+  const handleSelectSkill = useCallback((skillId) => {
+    setState((prev) => selectSkill(prev, skillId))
+  }, [])
+
   const handleRestart = useCallback(() => {
     setState(restartGame())
     setShowInventory(false)
@@ -38,9 +44,6 @@ export default function GameScreen() {
       const updated = popups
         .map((p) => ({ ...p, timer: p.timer - 1 }))
         .filter((p) => p.timer > 0)
-      if (updated.length === popups.length && updated.every((p, i) => p.timer === popups[i].timer - 0)) {
-        // 実際に変わったかチェック（無限ループ防止）
-      }
       return { ...prev, damagePopups: updated }
     })
   }, [])
@@ -72,6 +75,15 @@ export default function GameScreen() {
           player={state.player}
           onUseItem={handleUseItem}
           onClose={() => setShowInventory(false)}
+        />
+      )}
+
+      {state.levelUpFlash && <LevelUpFlash key={state.player.level} />}
+
+      {state.pendingSkillChoice && (
+        <SkillSelectModal
+          choices={state.pendingSkillChoice}
+          onSelect={handleSelectSkill}
         />
       )}
 

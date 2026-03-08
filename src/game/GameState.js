@@ -1,10 +1,11 @@
 import { generateFloor } from './dungeon'
 import { computeFOV } from './fov'
-import { calcDamage, getPlayerStats } from './combat'
+import { calcPlayerDamage, getPlayerStats, checkEvasion } from './combat'
 import { processEnemyTurns } from './enemyAI'
 import { TILE, MAP_WIDTH, MAP_HEIGHT } from '../utils/constants'
 import { getEnemyTypesForFloor, scaleEnemy } from '../data/enemies'
 import { getItemPoolForFloor, createItemInstance } from '../data/items'
+import { SKILL_LEVELS, getSkillChoices } from '../data/skills'
 import { randInt, pick } from '../utils/random'
 
 const MAX_INVENTORY = 10
@@ -24,6 +25,7 @@ function createPlayer() {
     expToNext: 20,
     equipment: { weapon: null, shield: null },
     inventory: [],
+    skills: [],
   }
 }
 
@@ -62,12 +64,16 @@ function spawnEnemies(rooms, playerStart, floor, tiles) {
   return enemies
 }
 
-function spawnItems(rooms, playerStart, floor, tiles, enemies) {
+function spawnItems(rooms, playerStart, floor, tiles, enemies, skills) {
   const pool = getItemPoolForFloor(floor)
   if (pool.length === 0) return []
 
   const items = []
-  const itemCount = randInt(2, 4)
+  let itemCount = randInt(2, 4)
+  // 強欲スキル: +2
+  if (skills.some((s) => s.id === 'greed')) {
+    itemCount += 2
+  }
 
   for (let i = 0; i < itemCount; i++) {
     const room = pick(rooms)
@@ -96,7 +102,7 @@ function buildFloorState(floor, player) {
   )
   const newPlayer = { ...player, x: floorData.playerStart.x, y: floorData.playerStart.y }
   const enemies = spawnEnemies(floorData.rooms, floorData.playerStart, floor, floorData.tiles)
-  const floorItems = spawnItems(floorData.rooms, floorData.playerStart, floor, floorData.tiles, enemies)
+  const floorItems = spawnItems(floorData.rooms, floorData.playerStart, floor, floorData.tiles, enemies, player.skills || [])
   const fov = computeFOV(floorData.tiles, newPlayer, floorData.rooms, revealed)
 
   return {
@@ -112,6 +118,8 @@ function buildFloorState(floor, player) {
     message: `${floor}階に降りた...`,
     damagePopups: [],
     gameOver: false,
+    pendingSkillChoice: null,
+    levelUpFlash: false,
   }
 }
 
@@ -120,7 +128,7 @@ export function createInitialState() {
 }
 
 export function movePlayer(state, dx, dy) {
-  if (state.gameOver) return state
+  if (state.gameOver || state.pendingSkillChoice) return state
 
   const nx = state.player.x + dx
   const ny = state.player.y + dy
@@ -172,21 +180,34 @@ export function movePlayer(state, dx, dy) {
     message: result.message || message,
     damagePopups: [...newPopups, ...result.damagePopups],
     gameOver: result.gameOver,
+    levelUpFlash: false,
   }
 }
 
 function attackEnemy(state, enemy) {
   const { attack } = getPlayerStats(state.player)
-  const damage = calcDamage(attack, enemy.defense)
+  const skills = state.player.skills || []
+  const { damage, isCritical, isFireSlash } = calcPlayerDamage(attack, enemy.defense, skills)
   const newHp = enemy.hp - damage
-  const popups = [{ id: Date.now(), x: enemy.x, y: enemy.y, text: `${damage}`, color: '#ffcc44', timer: 30 }]
-  let message = `${enemy.name}に${damage}のダメージ！`
-  let expGain = 0
 
+  let popupColor = '#ffcc44'
+  let popupText = `${damage}`
+  if (isCritical) {
+    popupColor = '#ff44ff'
+    popupText = `${damage}!`
+  } else if (isFireSlash) {
+    popupColor = '#ff6633'
+  }
+
+  const popups = [{ id: Date.now(), x: enemy.x, y: enemy.y, text: popupText, color: popupColor, timer: 30 }]
+
+  let message = `${enemy.name}に${damage}のダメージ！`
+  if (isCritical) message = `会心の一撃！ ${enemy.name}に${damage}のダメージ！`
+  else if (isFireSlash) message = `火炎斬り！ ${enemy.name}に${damage}のダメージ！`
+
+  let expGain = 0
   const newEnemies = state.enemies.map((e) => {
-    if (e.id === enemy.id) {
-      return { ...e, hp: Math.max(0, newHp) }
-    }
+    if (e.id === enemy.id) return { ...e, hp: Math.max(0, newHp) }
     return e
   })
 
@@ -196,6 +217,9 @@ function attackEnemy(state, enemy) {
   }
 
   let newPlayer = { ...state.player }
+  let pendingSkillChoice = null
+  let levelUpFlash = false
+
   if (expGain > 0) {
     newPlayer.exp += expGain
     while (newPlayer.exp >= newPlayer.expToNext) {
@@ -207,6 +231,15 @@ function attackEnemy(state, enemy) {
       newPlayer.baseDefense += 1
       newPlayer.expToNext = Math.floor(newPlayer.expToNext * 1.4)
       message += ` レベル${newPlayer.level}に上がった！`
+      levelUpFlash = true
+
+      // スキル選択判定
+      if (SKILL_LEVELS.includes(newPlayer.level)) {
+        const choices = getSkillChoices(newPlayer.skills.map((s) => s.id))
+        if (choices.length > 0) {
+          pendingSkillChoice = choices
+        }
+      }
     }
   }
 
@@ -223,11 +256,14 @@ function attackEnemy(state, enemy) {
     message: result.message || message,
     damagePopups: [...popups, ...result.damagePopups],
     gameOver: result.gameOver,
+    pendingSkillChoice,
+    levelUpFlash,
   }
 }
 
 function processEnemyTurn(enemies, player, tiles) {
   const { defense } = getPlayerStats(player)
+  const skills = player.skills || []
   const { enemies: movedEnemies, damageEvents } = processEnemyTurns(enemies, player, defense, tiles)
 
   let totalDamage = 0
@@ -235,6 +271,20 @@ function processEnemyTurn(enemies, player, tiles) {
   let message = null
 
   for (const event of damageEvents) {
+    // 見切りスキル: 回避判定
+    if (checkEvasion(skills)) {
+      damagePopups.push({
+        id: Date.now() + Math.random(),
+        x: event.x,
+        y: event.y,
+        text: 'MISS',
+        color: '#88aaff',
+        timer: 30,
+      })
+      message = `${event.enemyName}の攻撃を見切った！`
+      continue
+    }
+
     totalDamage += event.damage
     damagePopups.push({
       id: Date.now() + Math.random(),
@@ -260,13 +310,46 @@ function processEnemyTurn(enemies, player, tiles) {
 }
 
 export function descendStairs(state) {
-  if (state.gameOver) return state
+  if (state.gameOver || state.pendingSkillChoice) return state
   if (state.player.x !== state.stairs.x || state.player.y !== state.stairs.y) {
     return state
   }
 
+  let player = { ...state.player }
+  let message = ''
+
+  // 回復の心得スキル
+  if (player.skills.some((s) => s.id === 'healing_wisdom')) {
+    const healed = Math.min(15, player.maxHp - player.hp)
+    player.hp += healed
+    if (healed > 0) message = ` 回復の心得でHP${healed}回復！`
+  }
+
   const nextFloor = state.floor + 1
-  return buildFloorState(nextFloor, state.player)
+  const newState = buildFloorState(nextFloor, player)
+  if (message) {
+    newState.message += message
+  }
+  return newState
+}
+
+export function selectSkill(state, skillId) {
+  if (!state.pendingSkillChoice) return state
+
+  const skill = state.pendingSkillChoice.find((s) => s.id === skillId)
+  if (!skill) return state
+
+  const newPlayer = {
+    ...state.player,
+    skills: [...state.player.skills, skill],
+  }
+
+  return {
+    ...state,
+    player: newPlayer,
+    pendingSkillChoice: null,
+    message: `スキル「${skill.name}」を習得した！`,
+  }
 }
 
 export function useItemFromInventory(state, itemId) {
