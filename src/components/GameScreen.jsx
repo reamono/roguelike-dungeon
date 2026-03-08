@@ -11,10 +11,12 @@ import Inventory from './Inventory'
 import GameOverScreen from './GameOverScreen'
 import SkillSelectModal from './SkillSelectModal'
 import LevelUpFlash from './LevelUpFlash'
+import LogPanel from './LogPanel'
 
 export default function GameScreen() {
   const [state, setState] = useState(createInitialState)
   const [showInventory, setShowInventory] = useState(false)
+  const [showLog, setShowLog] = useState(false)
 
   const handleMove = useCallback((dx, dy) => {
     setState((prev) => movePlayer(prev, dx, dy))
@@ -52,7 +54,7 @@ export default function GameScreen() {
 
   return (
     <div className="game-screen">
-      <StatusPanel floor={state.floor} player={state.player} message={state.message} />
+      <StatusPanel floor={state.floor} player={state.player} message={state.message} onShowLog={() => setShowLog(true)} />
       <Canvas state={state} touchHandlers={touchHandlers} onTickPopups={handleTickPopups} />
 
       <div className="bottom-bar">
@@ -85,6 +87,10 @@ export default function GameScreen() {
           choices={state.pendingSkillChoice}
           onSelect={handleSelectSkill}
         />
+      )}
+
+      {showLog && (
+        <LogPanel log={state.messageLog} onClose={() => setShowLog(false)} />
       )}
 
       {state.gameOver && (

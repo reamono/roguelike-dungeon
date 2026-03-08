@@ -9,6 +9,7 @@ import { SKILL_LEVELS, getSkillChoices } from '../data/skills'
 import { randInt, pick } from '../utils/random'
 
 const MAX_INVENTORY = 10
+const MAX_LOG = 50
 
 let _nextEnemyId = 1
 
@@ -95,7 +96,14 @@ function spawnItems(rooms, playerStart, floor, tiles, enemies, skills) {
   return items
 }
 
-function buildFloorState(floor, player) {
+function appendLog(log, msg) {
+  if (!msg) return log || []
+  const newLog = [...(log || []), msg]
+  if (newLog.length > MAX_LOG) return newLog.slice(newLog.length - MAX_LOG)
+  return newLog
+}
+
+function buildFloorState(floor, player, prevLog) {
   const floorData = generateFloor(floor)
   const revealed = Array.from({ length: MAP_HEIGHT }, () =>
     Array(MAP_WIDTH).fill(false)
@@ -105,6 +113,7 @@ function buildFloorState(floor, player) {
   const floorItems = spawnItems(floorData.rooms, floorData.playerStart, floor, floorData.tiles, enemies, player.skills || [])
   const fov = computeFOV(floorData.tiles, newPlayer, floorData.rooms, revealed)
 
+  const msg = `${floor}階に降りた...`
   return {
     floor,
     player: newPlayer,
@@ -115,7 +124,8 @@ function buildFloorState(floor, player) {
     floorItems,
     visible: fov.visible,
     revealed: fov.revealed,
-    message: `${floor}階に降りた...`,
+    message: msg,
+    messageLog: appendLog(prevLog, msg),
     damagePopups: [],
     gameOver: false,
     pendingSkillChoice: null,
@@ -170,6 +180,12 @@ export function movePlayer(state, dx, dy) {
   const result = processEnemyTurn(state.enemies, newPlayer, state.tiles)
   const fov = computeFOV(state.tiles, result.player, state.rooms, state.revealed)
 
+  const finalMsg = result.message || message
+  let log = state.messageLog
+  if (message !== state.message) log = appendLog(log, message)
+  if (result.message) log = appendLog(log, result.message)
+  if (!result.message && message === state.message) log = state.messageLog
+
   return {
     ...state,
     player: result.player,
@@ -177,7 +193,8 @@ export function movePlayer(state, dx, dy) {
     floorItems,
     visible: fov.visible,
     revealed: fov.revealed,
-    message: result.message || message,
+    message: finalMsg,
+    messageLog: log,
     damagePopups: [...newPopups, ...result.damagePopups],
     gameOver: result.gameOver,
     levelUpFlash: false,
@@ -247,13 +264,18 @@ function attackEnemy(state, enemy) {
   const result = processEnemyTurn(aliveEnemies, newPlayer, state.tiles)
   const fov = computeFOV(state.tiles, result.player, state.rooms, state.revealed)
 
+  const finalMsg = result.message || message
+  let log = appendLog(state.messageLog, message)
+  if (result.message) log = appendLog(log, result.message)
+
   return {
     ...state,
     player: result.player,
     enemies: result.enemies,
     visible: fov.visible,
     revealed: fov.revealed,
-    message: result.message || message,
+    message: finalMsg,
+    messageLog: log,
     damagePopups: [...popups, ...result.damagePopups],
     gameOver: result.gameOver,
     pendingSkillChoice,
@@ -326,9 +348,10 @@ export function descendStairs(state) {
   }
 
   const nextFloor = state.floor + 1
-  const newState = buildFloorState(nextFloor, player)
+  const newState = buildFloorState(nextFloor, player, state.messageLog)
   if (message) {
     newState.message += message
+    newState.messageLog = appendLog(newState.messageLog, message.trim())
   }
   return newState
 }
@@ -344,11 +367,13 @@ export function selectSkill(state, skillId) {
     skills: [...state.player.skills, skill],
   }
 
+  const msg = `スキル「${skill.name}」を習得した！`
   return {
     ...state,
     player: newPlayer,
     pendingSkillChoice: null,
-    message: `スキル「${skill.name}」を習得した！`,
+    message: msg,
+    messageLog: appendLog(state.messageLog, msg),
   }
 }
 
@@ -360,6 +385,7 @@ export function useItemFromInventory(state, itemId) {
 
   if (item.type === 'potion') {
     const healed = Math.min(item.stats.heal, state.player.maxHp - state.player.hp)
+    const msg = `${item.name}を使った！ HPが${healed}回復した`
     return {
       ...state,
       player: {
@@ -367,7 +393,8 @@ export function useItemFromInventory(state, itemId) {
         hp: state.player.hp + healed,
         inventory: state.player.inventory.filter((i) => i.id !== itemId),
       },
-      message: `${item.name}を使った！ HPが${healed}回復した`,
+      message: msg,
+      messageLog: appendLog(state.messageLog, msg),
     }
   }
 
@@ -378,6 +405,7 @@ export function useItemFromInventory(state, itemId) {
     if (current) {
       newInventory = [...newInventory, current]
     }
+    const msg = `${item.name}を装備した！`
     return {
       ...state,
       player: {
@@ -385,7 +413,8 @@ export function useItemFromInventory(state, itemId) {
         equipment: { ...state.player.equipment, [slot]: item },
         inventory: newInventory,
       },
-      message: `${item.name}を装備した！`,
+      message: msg,
+      messageLog: appendLog(state.messageLog, msg),
     }
   }
 

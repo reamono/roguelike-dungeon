@@ -1,6 +1,6 @@
 import { getPlayerStats } from '../game/combat'
 
-export default function StatusPanel({ floor, player, message }) {
+export default function StatusPanel({ floor, player, message, onShowLog }) {
   const { attack, defense } = getPlayerStats(player)
 
   return (
@@ -27,6 +27,8 @@ export default function StatusPanel({ floor, player, message }) {
           <span className="stat">ATK{attack}</span>
           <span className="stat">DEF{defense}</span>
         </div>
+
+        <button className="log-btn" onClick={onShowLog}>LOG</button>
       </div>
 
       <div className="status-message">{message}</div>

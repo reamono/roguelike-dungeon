@@ -1,5 +1,8 @@
+import { useState } from 'react'
+
 export default function Inventory({ player, onUseItem, onClose }) {
   const { inventory, equipment, skills } = player
+  const [selectedSkill, setSelectedSkill] = useState(null)
 
   return (
     <div className="inventory-overlay" onClick={onClose}>
@@ -31,12 +34,24 @@ export default function Inventory({ player, onUseItem, onClose }) {
             <div className="skills-title">習得スキル</div>
             <div className="skills-list">
               {skills.map((s) => (
-                <div key={s.id} className="skill-tag" style={{ borderColor: s.color }}>
+                <div
+                  key={s.id}
+                  className="skill-tag"
+                  style={{ borderColor: s.color }}
+                  onClick={() => setSelectedSkill(selectedSkill?.id === s.id ? null : s)}
+                >
                   <span className="skill-tag-icon">{s.icon}</span>
                   <span className="skill-tag-name">{s.name}</span>
                 </div>
               ))}
             </div>
+            {selectedSkill && (
+              <div className="skill-tooltip" onClick={() => setSelectedSkill(null)}>
+                <span className="skill-tooltip-icon" style={{ color: selectedSkill.color }}>{selectedSkill.icon}</span>
+                <span className="skill-tooltip-name">{selectedSkill.name}</span>
+                <span className="skill-tooltip-desc">{selectedSkill.description}</span>
+              </div>
+            )}
           </div>
         )}
 
