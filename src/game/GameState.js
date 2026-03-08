@@ -10,25 +10,30 @@ import { SKILL_LEVELS, getSkillChoices } from '../data/skills'
 import { isBossFloor, getBossForFloor } from '../data/bosses'
 import { randInt, pick } from '../utils/random'
 
-const MAX_INVENTORY = 10
+const BASE_MAX_INVENTORY = 10
 const MAX_LOG = 50
 
 let _nextEnemyId = 1
+let _nextGoldId = 1
 
-function createPlayer() {
+function createPlayer(bonuses) {
+  const b = bonuses || {}
   return {
     x: 0,
     y: 0,
-    hp: 30,
-    maxHp: 30,
-    baseAttack: 5,
-    baseDefense: 2,
+    hp: 30 + (b.maxHp || 0),
+    maxHp: 30 + (b.maxHp || 0),
+    baseAttack: 5 + (b.baseAttack || 0),
+    baseDefense: 2 + (b.baseDefense || 0),
     level: 1,
     exp: 0,
     expToNext: 20,
     equipment: { weapon: null, shield: null },
     inventory: [],
     skills: [],
+    gold: 0,
+    killCount: 0,
+    maxInventory: BASE_MAX_INVENTORY + (b.extraInventory || 0),
   }
 }
 
@@ -98,6 +103,37 @@ function spawnItems(rooms, playerStart, floor, tiles, enemies, skills) {
   return items
 }
 
+function spawnFloorGold(rooms, playerStart, floor, tiles, enemies, floorItems) {
+  const golds = []
+  const goldCount = randInt(1, 3) + Math.floor(floor * 0.3)
+  for (let i = 0; i < goldCount; i++) {
+    const room = pick(rooms)
+    let attempts = 0
+    while (attempts < 20) {
+      attempts++
+      const x = randInt(room.x + 1, room.x + room.width - 2)
+      const y = randInt(room.y + 1, room.y + room.height - 2)
+      if (x === playerStart.x && y === playerStart.y) continue
+      if (enemies.some((e) => e.x === x && e.y === y)) continue
+      if (floorItems.some((it) => it.x === x && it.y === y)) continue
+      if (golds.some((g) => g.x === x && g.y === y)) continue
+      if (tiles[y][x] === TILE.WALL) continue
+
+      const amount = randInt(3, 8) + Math.floor(floor * 1.5)
+      golds.push({
+        id: `gold_${_nextGoldId++}`,
+        type: 'gold',
+        name: `${amount}G`,
+        amount,
+        x,
+        y,
+      })
+      break
+    }
+  }
+  return golds
+}
+
 function appendLog(log, msg) {
   if (!msg) return log || []
   const newLog = [...(log || []), msg]
@@ -118,6 +154,7 @@ function createBoss(bossData, bossStart) {
     attack: bossData.attack,
     defense: bossData.defense,
     exp: bossData.exp,
+    gold: bossData.gold || 0,
     isBoss: true,
     specialType: bossData.specialType,
     specialInterval: bossData.specialInterval,
@@ -139,6 +176,9 @@ function buildFloorState(floor, player, prevLog) {
     floorData = generateFloor(floor)
     enemies = spawnEnemies(floorData.rooms, floorData.playerStart, floor, floorData.tiles)
     floorItems = spawnItems(floorData.rooms, floorData.playerStart, floor, floorData.tiles, enemies, player.skills || [])
+    // 床ゴールドを追加
+    const floorGold = spawnFloorGold(floorData.rooms, floorData.playerStart, floor, floorData.tiles, enemies, floorItems)
+    floorItems = [...floorItems, ...floorGold]
   }
 
   const revealed = Array.from({ length: MAP_HEIGHT }, () =>
@@ -171,8 +211,23 @@ function buildFloorState(floor, player, prevLog) {
   }
 }
 
-export function createInitialState() {
-  return buildFloorState(1, createPlayer())
+export function createInitialState(bonuses) {
+  const player = createPlayer(bonuses)
+  // 備蓄の心得: 回復薬を持ってスタート
+  if (bonuses && bonuses.startPotions > 0) {
+    for (let i = 0; i < bonuses.startPotions; i++) {
+      player.inventory.push({
+        id: `start_potion_${i}`,
+        type: 'potion',
+        name: '薬草',
+        sprite: 'potion_green',
+        rarity: 'common',
+        stats: { heal: 15 },
+        description: 'HPを15回復する',
+      })
+    }
+  }
+  return buildFloorState(1, player)
 }
 
 // ボスの2x2タイル上かチェック
@@ -219,7 +274,11 @@ export function movePlayer(state, dx, dy) {
   let floorItems = state.floorItems
   const itemHere = floorItems.find((it) => it.x === nx && it.y === ny)
   if (itemHere) {
-    if (newPlayer.inventory.length < MAX_INVENTORY) {
+    if (itemHere.type === 'gold') {
+      newPlayer.gold = (newPlayer.gold || 0) + itemHere.amount
+      floorItems = floorItems.filter((it) => it.id !== itemHere.id)
+      message = `${itemHere.amount}Gを拾った！`
+    } else if (newPlayer.inventory.length < (newPlayer.maxInventory || BASE_MAX_INVENTORY)) {
       const { x, y, ...itemData } = itemHere
       newPlayer.inventory = [...newPlayer.inventory, itemData]
       floorItems = floorItems.filter((it) => it.id !== itemHere.id)
@@ -319,8 +378,11 @@ function attackBoss(state) {
 
   // ボス撃破
   if (newBossHp <= 0) {
-    message = `${boss.name}を倒した！ (${boss.exp} EXP)`
+    const bossGold = boss.gold || 0
+    message = `${boss.name}を倒した！ (${boss.exp} EXP${bossGold > 0 ? ` +${bossGold}G` : ''})`
     stairsLocked = false
+    newPlayer.gold = (newPlayer.gold || 0) + bossGold
+    newPlayer.killCount = (newPlayer.killCount || 0) + 1
 
     // レアアイテムドロップ
     if (boss.dropItem) {
@@ -453,7 +515,8 @@ function attackEnemy(state, enemy) {
   })
 
   if (newHp <= 0) {
-    message = `${enemy.name}を倒した！ (${enemy.exp} EXP)`
+    const goldGain = enemy.gold || 0
+    message = `${enemy.name}を倒した！ (${enemy.exp} EXP${goldGain > 0 ? ` +${goldGain}G` : ''})`
     expGain = enemy.exp
   }
 
@@ -463,6 +526,10 @@ function attackEnemy(state, enemy) {
 
   if (expGain > 0) {
     newPlayer.exp += expGain
+    // ゴールド加算 & キルカウント
+    const goldGain = enemy.gold || 0
+    newPlayer.gold = (newPlayer.gold || 0) + goldGain
+    newPlayer.killCount = (newPlayer.killCount || 0) + 1
     while (newPlayer.exp >= newPlayer.expToNext) {
       newPlayer.exp -= newPlayer.expToNext
       newPlayer.level++
@@ -650,6 +717,6 @@ export function useItemFromInventory(state, itemId) {
   return state
 }
 
-export function restartGame() {
-  return createInitialState()
+export function restartGame(bonuses) {
+  return createInitialState(bonuses)
 }

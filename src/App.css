@@ -816,6 +816,217 @@
   to { transform: translateY(0); opacity: 1; }
 }
 
+/* Gold stat */
+.stat-gold {
+  color: #ffcc44;
+  background: #2a2a1a;
+  border: 1px solid #554422;
+}
+
+/* Game Over - extended */
+.gameover-gold {
+  color: #ffcc44;
+}
+
+.gameover-saved {
+  margin-bottom: 24px;
+  padding: 8px 16px;
+  background: rgba(255, 204, 68, 0.1);
+  border: 1px solid #554422;
+  border-radius: 8px;
+}
+
+.gameover-saved-text {
+  font-size: 0.85rem;
+  color: #ffcc44;
+  font-weight: 700;
+}
+
+/* Base Screen */
+.base-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100%;
+  max-width: 500px;
+  margin: 0 auto;
+  padding: 24px 16px;
+  background: linear-gradient(180deg, #0a0a18 0%, #12122a 100%);
+}
+
+.base-result {
+  width: 100%;
+  padding: 8px 12px;
+  margin-bottom: 16px;
+  background: rgba(255, 204, 68, 0.08);
+  border: 1px solid #444422;
+  border-radius: 8px;
+  text-align: center;
+  animation: fadeIn 0.5s ease;
+}
+
+.base-result-text {
+  font-size: 0.75rem;
+  color: #ccaa66;
+  line-height: 1.6;
+}
+
+.base-header {
+  text-align: center;
+  margin-bottom: 24px;
+  width: 100%;
+}
+
+.base-title {
+  font-size: 1.6rem;
+  font-weight: 900;
+  color: #ccccee;
+  letter-spacing: 0.1em;
+  margin-bottom: 12px;
+  text-shadow: 0 0 15px rgba(100, 100, 200, 0.3);
+}
+
+.base-gold {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  background: #1a1a3e;
+  padding: 8px 20px;
+  border-radius: 10px;
+  border: 1px solid #444422;
+  margin-bottom: 12px;
+}
+
+.base-gold-label {
+  font-size: 0.75rem;
+  color: #8888aa;
+  font-weight: 700;
+}
+
+.base-gold-value {
+  font-size: 1.4rem;
+  font-weight: 900;
+  color: #ffcc44;
+}
+
+.base-records {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.base-record {
+  font-size: 0.7rem;
+  color: #6a6a9a;
+  background: #1a1a3e;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+/* Upgrade Shop */
+.base-shop {
+  width: 100%;
+  margin-bottom: 24px;
+}
+
+.base-shop-title {
+  font-size: 1rem;
+  color: #aaaacc;
+  margin-bottom: 12px;
+  text-align: center;
+  font-weight: 800;
+}
+
+.upgrade-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.upgrade-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 16px;
+  background: linear-gradient(180deg, #1a1a3e 0%, #14142e 100%);
+  border: 2px solid #2a2a5a;
+  border-radius: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  color: #ccccee;
+  text-align: left;
+  transition: transform 0.15s, box-shadow 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.upgrade-card:active {
+  transform: scale(0.97);
+  box-shadow: 0 0 15px rgba(255, 204, 68, 0.15);
+}
+
+.upgrade-locked {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.upgrade-locked:active {
+  transform: none;
+  box-shadow: none;
+}
+
+.upgrade-name {
+  font-size: 0.85rem;
+  font-weight: 800;
+  flex-shrink: 0;
+  min-width: 5.5em;
+}
+
+.upgrade-desc {
+  font-size: 0.7rem;
+  color: #8888aa;
+  flex: 1;
+}
+
+.upgrade-cost {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #ffcc44;
+  flex-shrink: 0;
+}
+
+.upgrade-count {
+  font-size: 0.6rem;
+  color: #66aa66;
+  background: #1a2a1a;
+  padding: 2px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+/* Start Button */
+.base-start-btn {
+  width: 100%;
+  max-width: 300px;
+  padding: 16px 32px;
+  background: linear-gradient(180deg, #44aa44 0%, #338833 100%);
+  color: white;
+  border: none;
+  border-radius: 14px;
+  font-size: 1.1rem;
+  font-weight: 900;
+  font-family: inherit;
+  cursor: pointer;
+  letter-spacing: 0.1em;
+  transition: transform 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.base-start-btn:active {
+  transform: scale(0.95);
+}
+
 /* Safe area padding for notched phones */
 @supports (padding-bottom: env(safe-area-inset-bottom)) {
   .dpad {

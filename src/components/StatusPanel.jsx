@@ -26,6 +26,7 @@ export default function StatusPanel({ floor, player, message, onShowLog }) {
           <span className="stat">Lv{player.level}</span>
           <span className="stat">ATK{attack}</span>
           <span className="stat">DEF{defense}</span>
+          <span className="stat stat-gold">{player.gold || 0}G</span>
         </div>
 
         <button className="log-btn" onClick={onShowLog}>LOG</button>

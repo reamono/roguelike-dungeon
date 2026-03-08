@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import {
   createInitialState, movePlayer, descendStairs,
-  useItemFromInventory, selectSkill, restartGame,
+  useItemFromInventory, selectSkill,
   dismissBossWarning,
 } from '../game/GameState'
 import { useInput } from '../hooks/useInput'
@@ -16,11 +16,10 @@ import LogPanel from './LogPanel'
 import BossWarning from './BossWarning'
 import BossHPBar from './BossHPBar'
 
-export default function GameScreen() {
-  const [state, setState] = useState(createInitialState)
+export default function GameScreen({ bonuses, onGameOver }) {
+  const [state, setState] = useState(() => createInitialState(bonuses))
   const [showInventory, setShowInventory] = useState(false)
   const [showLog, setShowLog] = useState(false)
-
   const handleMove = useCallback((dx, dy) => {
     setState((prev) => movePlayer(prev, dx, dy))
   }, [])
@@ -38,9 +37,13 @@ export default function GameScreen() {
   }, [])
 
   const handleRestart = useCallback(() => {
-    setState(restartGame())
-    setShowInventory(false)
-  }, [])
+    onGameOver({
+      gold: state.player.gold || 0,
+      floor: state.floor,
+      killCount: state.player.killCount || 0,
+      level: state.player.level,
+    })
+  }, [onGameOver, state])
 
   const handleDismissBossWarning = useCallback(() => {
     setState((prev) => dismissBossWarning(prev))
@@ -117,6 +120,8 @@ export default function GameScreen() {
         <GameOverScreen
           floor={state.floor}
           level={state.player.level}
+          gold={state.player.gold || 0}
+          killCount={state.player.killCount || 0}
           onRestart={handleRestart}
         />
       )}

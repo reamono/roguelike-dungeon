@@ -12,6 +12,7 @@ export const BOSSES = [
     attack: 12,
     defense: 4,
     exp: 100,
+    gold: 50,
     // 特殊攻撃: 周囲1マス範囲攻撃（2ターンに1回）
     specialType: 'aoe_melee',
     specialInterval: 2,
@@ -35,6 +36,7 @@ export const BOSSES = [
     attack: 18,
     defense: 8,
     exp: 250,
+    gold: 120,
     // 特殊攻撃: 2マス先まで届くブレス（2ターンに1回）
     specialType: 'breath',
     specialInterval: 2,
@@ -58,6 +60,7 @@ export const BOSSES = [
     attack: 22,
     defense: 10,
     exp: 500,
+    gold: 200,
     // 特殊攻撃: HP吸収 + 3ターンに1回ザコ召喚
     specialType: 'drain_summon',
     specialInterval: 3,
@@ -90,6 +93,7 @@ export function getBossForFloor(floor) {
     attack: Math.floor(base.attack * scale),
     defense: Math.floor(base.defense * scale),
     exp: Math.floor(base.exp * scale),
+    gold: Math.floor(base.gold * scale),
     dropItem: {
       ...base.dropItem,
       stats: Object.fromEntries(

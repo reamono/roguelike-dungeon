@@ -154,6 +154,23 @@ export function drawItem(ctx, screenX, screenY, item) {
 }
 
 /**
+ * 床ゴールドを描画
+ */
+export function drawGold(ctx, screenX, screenY) {
+  const s = TILE_SIZE
+  const x = screenX
+  const y = screenY
+  ctx.fillStyle = '#ffcc44'
+  ctx.fillRect(x + s * 0.3, y + s * 0.35, s * 0.4, s * 0.35)
+  ctx.fillRect(x + s * 0.35, y + s * 0.3, s * 0.3, s * 0.45)
+  ctx.fillStyle = '#ffe888'
+  ctx.fillRect(x + s * 0.38, y + s * 0.38, s * 0.12, s * 0.12)
+  ctx.fillStyle = '#aa8822'
+  ctx.fillRect(x + s * 0.42, y + s * 0.48, s * 0.16, s * 0.04)
+  ctx.fillRect(x + s * 0.42, y + s * 0.44, s * 0.04, s * 0.12)
+}
+
+/**
  * ダメージポップアップを描画
  */
 export function drawDamagePopup(ctx, screenX, screenY, popup) {

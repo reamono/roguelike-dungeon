@@ -2,7 +2,7 @@ import { TILE_SIZE, TILE, MAP_WIDTH, MAP_HEIGHT } from '../utils/constants'
 import { getCameraOffset } from './camera'
 import {
   drawWall, drawFloor, drawCorridor, drawStairs,
-  drawPlayer, drawEnemy, drawBoss, drawItem, drawDamagePopup,
+  drawPlayer, drawEnemy, drawBoss, drawItem, drawGold, drawDamagePopup,
 } from './sprites'
 
 /**
@@ -66,13 +66,17 @@ export function renderGame(ctx, canvas, state) {
     }
   }
 
-  // 床アイテム描画（視界内のみ）
+  // 床アイテム・ゴールド描画（視界内のみ）
   if (floorItems) {
     for (const item of floorItems) {
       if (!visible[item.y]?.[item.x]) continue
       const sx = item.x * TILE_SIZE + offsetX
       const sy = item.y * TILE_SIZE + offsetY
-      drawItem(ctx, sx, sy, item)
+      if (item.type === 'gold') {
+        drawGold(ctx, sx, sy)
+      } else {
+        drawItem(ctx, sx, sy, item)
+      }
     }
   }
 
