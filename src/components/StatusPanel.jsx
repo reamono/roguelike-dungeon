@@ -1,4 +1,8 @@
-export default function StatusPanel({ floor, message }) {
+import { getPlayerStats } from '../game/combat'
+
+export default function StatusPanel({ floor, player, message }) {
+  const { attack, defense } = getPlayerStats(player)
+
   return (
     <div className="status-panel">
       <div className="status-floor">
@@ -6,6 +10,23 @@ export default function StatusPanel({ floor, message }) {
         <span className="status-floor-num">{floor}</span>
         <span className="status-label">F</span>
       </div>
+
+      <div className="status-hp">
+        <div className="hp-bar-bg">
+          <div
+            className="hp-bar-fill"
+            style={{ width: `${(player.hp / player.maxHp) * 100}%` }}
+          />
+        </div>
+        <span className="hp-text">{player.hp}/{player.maxHp}</span>
+      </div>
+
+      <div className="status-stats">
+        <span className="stat">Lv{player.level}</span>
+        <span className="stat">ATK{attack}</span>
+        <span className="stat">DEF{defense}</span>
+      </div>
+
       <div className="status-message">{message}</div>
     </div>
   )

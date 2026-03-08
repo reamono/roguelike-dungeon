@@ -11,12 +11,13 @@
 .status-panel {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 12px;
+  gap: 8px;
+  padding: 6px 10px;
   background: #0f0f24;
   border-bottom: 2px solid #1a1a3e;
   flex-shrink: 0;
   z-index: 10;
+  flex-wrap: wrap;
 }
 
 .status-floor {
@@ -43,12 +44,58 @@
   text-align: center;
 }
 
+.status-hp {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.hp-bar-bg {
+  width: 60px;
+  height: 10px;
+  background: #333;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.hp-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #cc4444, #44cc44);
+  border-radius: 5px;
+  transition: width 0.2s;
+}
+
+.hp-text {
+  font-size: 0.7rem;
+  color: #cc8888;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.status-stats {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.stat {
+  font-size: 0.65rem;
+  color: #8888aa;
+  background: #1a1a3e;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 700;
+}
+
 .status-message {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: #8888aa;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
 }
 
 /* Canvas */
@@ -61,6 +108,16 @@
   image-rendering: crisp-edges;
 }
 
+/* Bottom Bar */
+.bottom-bar {
+  display: flex;
+  align-items: center;
+  background: #0a0a18;
+  border-top: 2px solid #1a1a3e;
+  flex-shrink: 0;
+  z-index: 10;
+}
+
 /* D-Pad */
 .dpad {
   display: flex;
@@ -68,10 +125,7 @@
   align-items: center;
   padding: 8px 0 16px;
   gap: 4px;
-  background: #0a0a18;
-  border-top: 2px solid #1a1a3e;
-  flex-shrink: 0;
-  z-index: 10;
+  flex: 1;
 }
 
 .dpad-row {
@@ -80,8 +134,8 @@
 }
 
 .dpad-btn {
-  width: 56px;
-  height: 56px;
+  width: 52px;
+  height: 52px;
   border: 2px solid #2a2a5a;
   border-radius: 12px;
   background: #16163a;
@@ -113,12 +167,274 @@
   background: #2a3a6a;
 }
 
+/* Side Buttons */
+.side-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 12px 16px 0;
+}
+
+.side-btn {
+  width: 52px;
+  height: 52px;
+  border: 2px solid #2a2a5a;
+  border-radius: 12px;
+  background: #1a1a3e;
+  color: #aaaacc;
+  font-size: 0.85rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.side-btn:active {
+  background: #2a2a5a;
+  transform: scale(0.92);
+}
+
+.inv-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #e94560;
+  color: white;
+  font-size: 0.6rem;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Inventory Overlay */
+.inventory-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 100;
+  animation: fadeIn 0.2s ease;
+}
+
+.inventory-panel {
+  background: #12122a;
+  border-top: 2px solid #2a2a5a;
+  border-radius: 16px 16px 0 0;
+  width: 100%;
+  max-width: 500px;
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 0.25s ease;
+}
+
+.inventory-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #2a2a4a;
+}
+
+.inventory-header h3 {
+  font-size: 1rem;
+  color: #ccccee;
+}
+
+.inv-close-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: #2a2a4a;
+  color: #888;
+  border-radius: 8px;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Equipment Section */
+.equip-section {
+  padding: 8px 16px;
+  border-bottom: 1px solid #1a1a3e;
+}
+
+.equip-slot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.equip-label {
+  font-size: 0.7rem;
+  color: #6a6a9a;
+  width: 30px;
+  text-align: right;
+  font-weight: 700;
+}
+
+.equip-name {
+  font-size: 0.8rem;
+  color: #aaaacc;
+}
+
+/* Item List */
+.inv-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 12px 16px;
+}
+
+.inv-empty {
+  text-align: center;
+  color: #555;
+  padding: 24px;
+  font-size: 0.85rem;
+}
+
+.inv-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  margin-bottom: 4px;
+  border: 1px solid #2a2a4a;
+  border-radius: 8px;
+  background: #1a1a3a;
+  color: #ccccee;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  font-size: 0.8rem;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.inv-item:active {
+  background: #2a2a5a;
+}
+
+.inv-item.rarity-uncommon {
+  border-color: #4488aa;
+}
+
+.inv-item.rarity-rare {
+  border-color: #cc8844;
+}
+
+.inv-item-name {
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.inv-item-desc {
+  color: #888;
+  font-size: 0.7rem;
+  flex: 1;
+}
+
+.inv-item-action {
+  color: #44aaff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* Game Over */
+.gameover-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  animation: fadeIn 0.5s ease;
+}
+
+.gameover-panel {
+  text-align: center;
+  animation: slideUp 0.5s ease;
+}
+
+.gameover-title {
+  font-size: 2rem;
+  color: #cc4444;
+  letter-spacing: 0.2em;
+  margin-bottom: 24px;
+  text-shadow: 0 0 20px rgba(204, 68, 68, 0.5);
+}
+
+.gameover-stats {
+  display: flex;
+  justify-content: center;
+  gap: 32px;
+  margin-bottom: 32px;
+}
+
+.gameover-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.gameover-label {
+  font-size: 0.75rem;
+  color: #666;
+}
+
+.gameover-value {
+  font-size: 1.4rem;
+  font-weight: 900;
+  color: #aaaacc;
+}
+
+.gameover-btn {
+  background: #cc4444;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 14px 32px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: transform 0.15s;
+}
+
+.gameover-btn:active {
+  transform: scale(0.95);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(40px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
 /* Safe area padding for notched phones */
 @supports (padding-bottom: env(safe-area-inset-bottom)) {
   .dpad {
     padding-bottom: calc(16px + env(safe-area-inset-bottom));
   }
   .status-panel {
-    padding-top: calc(8px + env(safe-area-inset-top));
+    padding-top: calc(6px + env(safe-area-inset-top));
   }
 }

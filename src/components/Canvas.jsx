@@ -1,9 +1,9 @@
 import { useRef } from 'react'
 import { useGameLoop } from '../hooks/useGameLoop'
 
-export default function Canvas({ state, touchHandlers }) {
+export default function Canvas({ state, touchHandlers, onTickPopups }) {
   const canvasRef = useRef(null)
-  useGameLoop(canvasRef, state)
+  useGameLoop(canvasRef, state, onTickPopups)
 
   return (
     <canvas

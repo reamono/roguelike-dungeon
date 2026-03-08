@@ -1,12 +1,15 @@
 import { TILE_SIZE, TILE, MAP_WIDTH, MAP_HEIGHT } from '../utils/constants'
 import { getCameraOffset } from './camera'
-import { drawWall, drawFloor, drawCorridor, drawStairs, drawPlayer } from './sprites'
+import {
+  drawWall, drawFloor, drawCorridor, drawStairs,
+  drawPlayer, drawEnemy, drawItem, drawDamagePopup,
+} from './sprites'
 
 /**
  * ゲーム画面を描画
  */
 export function renderGame(ctx, canvas, state) {
-  const { tiles, player, visible, revealed, stairs } = state
+  const { tiles, player, visible, revealed, enemies, floorItems, damagePopups } = state
   const w = canvas.width
   const h = canvas.height
 
@@ -16,7 +19,7 @@ export function renderGame(ctx, canvas, state) {
 
   const { offsetX, offsetY } = getCameraOffset(player, w, h)
 
-  // 描画範囲の計算（画面外は描画しない）
+  // 描画範囲の計算
   const startCol = Math.max(0, Math.floor(-offsetX / TILE_SIZE))
   const endCol = Math.min(MAP_WIDTH, Math.ceil((w - offsetX) / TILE_SIZE))
   const startRow = Math.max(0, Math.floor(-offsetY / TILE_SIZE))
@@ -28,7 +31,7 @@ export function renderGame(ctx, canvas, state) {
       const screenX = x * TILE_SIZE + offsetX
       const screenY = y * TILE_SIZE + offsetY
 
-      if (!revealed[y][x]) continue // 未探索は完全に黒
+      if (!revealed[y][x]) continue
 
       const tile = tiles[y][x]
 
@@ -51,8 +54,39 @@ export function renderGame(ctx, canvas, state) {
     }
   }
 
+  // 床アイテム描画（視界内のみ）
+  if (floorItems) {
+    for (const item of floorItems) {
+      if (!visible[item.y]?.[item.x]) continue
+      const sx = item.x * TILE_SIZE + offsetX
+      const sy = item.y * TILE_SIZE + offsetY
+      drawItem(ctx, sx, sy, item)
+    }
+  }
+
+  // 敵描画（視界内のみ）
+  if (enemies) {
+    for (const enemy of enemies) {
+      if (enemy.hp <= 0) continue
+      if (!visible[enemy.y]?.[enemy.x]) continue
+      const sx = enemy.x * TILE_SIZE + offsetX
+      const sy = enemy.y * TILE_SIZE + offsetY
+      drawEnemy(ctx, sx, sy, enemy)
+    }
+  }
+
   // プレイヤー描画
   const px = player.x * TILE_SIZE + offsetX
   const py = player.y * TILE_SIZE + offsetY
   drawPlayer(ctx, px, py)
+
+  // ダメージポップアップ描画
+  if (damagePopups) {
+    for (const popup of damagePopups) {
+      if (popup.timer <= 0) continue
+      const sx = popup.x * TILE_SIZE + offsetX
+      const sy = popup.y * TILE_SIZE + offsetY
+      drawDamagePopup(ctx, sx, sy, popup)
+    }
+  }
 }
