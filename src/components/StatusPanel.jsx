@@ -5,26 +5,28 @@ export default function StatusPanel({ floor, player, message }) {
 
   return (
     <div className="status-panel">
-      <div className="status-floor">
-        <span className="status-label">B</span>
-        <span className="status-floor-num">{floor}</span>
-        <span className="status-label">F</span>
-      </div>
-
-      <div className="status-hp">
-        <div className="hp-bar-bg">
-          <div
-            className="hp-bar-fill"
-            style={{ width: `${(player.hp / player.maxHp) * 100}%` }}
-          />
+      <div className="status-row-top">
+        <div className="status-floor">
+          <span className="status-label">B</span>
+          <span className="status-floor-num">{floor}</span>
+          <span className="status-label">F</span>
         </div>
-        <span className="hp-text">{player.hp}/{player.maxHp}</span>
-      </div>
 
-      <div className="status-stats">
-        <span className="stat">Lv{player.level}</span>
-        <span className="stat">ATK{attack}</span>
-        <span className="stat">DEF{defense}</span>
+        <div className="status-hp">
+          <div className="hp-bar-bg">
+            <div
+              className="hp-bar-fill"
+              style={{ width: `${(player.hp / player.maxHp) * 100}%` }}
+            />
+          </div>
+          <span className="hp-text">{player.hp}/{player.maxHp}</span>
+        </div>
+
+        <div className="status-stats">
+          <span className="stat">Lv{player.level}</span>
+          <span className="stat">ATK{attack}</span>
+          <span className="stat">DEF{defense}</span>
+        </div>
       </div>
 
       <div className="status-message">{message}</div>
