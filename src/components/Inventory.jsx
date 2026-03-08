@@ -1,10 +1,28 @@
 import { useState } from 'react'
 
+function formatItemDesc(item) {
+  let desc = item.description || ''
+  if (item.enhance > 0) {
+    desc += ` (強化+${item.enhance})`
+  }
+  return desc
+}
+
+function formatEquipName(equip) {
+  if (!equip) return '---'
+  let name = equip.name
+  const stat = equip.type === 'weapon'
+    ? `ATK+${(equip.stats.attack || 0) + (equip.enhance || 0) * 2}`
+    : `DEF+${(equip.stats.defense || 0) + (equip.enhance || 0) * 2}`
+  return `${name} (${stat})`
+}
+
 export default function Inventory({ player, onUseItem, onDropItem, onSort, onClose }) {
   const { inventory, equipment, skills } = player
   const maxInv = player.maxInventory || 10
   const [selectedSkill, setSelectedSkill] = useState(null)
   const [confirmDrop, setConfirmDrop] = useState(null)
+  const [detailItem, setDetailItem] = useState(null)
 
   return (
     <div className="inventory-overlay" onClick={onClose}>
@@ -19,18 +37,32 @@ export default function Inventory({ player, onUseItem, onDropItem, onSort, onClo
 
         {/* 装備中 */}
         <div className="equip-section">
-          <div className="equip-slot">
+          <div
+            className="equip-slot equip-clickable"
+            onClick={() => equipment.weapon && setDetailItem(detailItem?.id === equipment.weapon.id ? null : equipment.weapon)}
+          >
             <span className="equip-label">武器</span>
-            <span className="equip-name">
-              {equipment.weapon ? `${equipment.weapon.name} (ATK+${equipment.weapon.stats.attack})` : '---'}
-            </span>
+            <span className="equip-name">{formatEquipName(equipment.weapon)}</span>
+            {equipment.weapon?.enchant && (
+              <span className="equip-enchant">{equipment.weapon.enchant.name}</span>
+            )}
           </div>
-          <div className="equip-slot">
+          <div
+            className="equip-slot equip-clickable"
+            onClick={() => equipment.shield && setDetailItem(detailItem?.id === equipment.shield.id ? null : equipment.shield)}
+          >
             <span className="equip-label">盾</span>
-            <span className="equip-name">
-              {equipment.shield ? `${equipment.shield.name} (DEF+${equipment.shield.stats.defense})` : '---'}
-            </span>
+            <span className="equip-name">{formatEquipName(equipment.shield)}</span>
+            {equipment.shield?.enchant && (
+              <span className="equip-enchant">{equipment.shield.enchant.name}</span>
+            )}
           </div>
+          {detailItem?.enchant && (
+            <div className="equip-detail" onClick={() => setDetailItem(null)}>
+              <span className="equip-detail-name">{detailItem.enchant.name}</span>
+              <span className="equip-detail-desc">{detailItem.enchant.desc}</span>
+            </div>
+          )}
         </div>
 
         {/* 習得済みスキル */}
@@ -72,7 +104,10 @@ export default function Inventory({ player, onUseItem, onDropItem, onSort, onClo
                 onClick={() => onUseItem(item.id)}
               >
                 <span className="inv-item-name">{item.name}</span>
-                <span className="inv-item-desc">{item.description}</span>
+                <span className="inv-item-desc">
+                  {formatItemDesc(item)}
+                  {item.enchant && <span className="inv-enchant-tag"> [{item.enchant.name}]</span>}
+                </span>
                 <span className="inv-item-action">
                   {item.type === 'potion' ? '使う' : '装備'}
                 </span>

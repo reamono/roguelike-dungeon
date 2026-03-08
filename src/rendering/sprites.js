@@ -260,3 +260,41 @@ export function drawCorridor(ctx, screenX, screenY) {
   ctx.fillStyle = '#282850'
   ctx.fillRect(screenX + s * 0.4, screenY + s * 0.4, 2, 2)
 }
+
+/**
+ * 鍛冶屋NPCを描画
+ */
+export function drawBlacksmith(ctx, screenX, screenY) {
+  const s = TILE_SIZE
+  const x = screenX
+  const y = screenY
+
+  // 体（エプロン）
+  ctx.fillStyle = '#886644'
+  ctx.fillRect(x + s * 0.2, y + s * 0.4, s * 0.6, s * 0.5)
+
+  // 頭
+  ctx.fillStyle = '#ddaa77'
+  ctx.fillRect(x + s * 0.3, y + s * 0.12, s * 0.4, s * 0.32)
+
+  // ヘッドバンド
+  ctx.fillStyle = '#cc4444'
+  ctx.fillRect(x + s * 0.25, y + s * 0.12, s * 0.5, s * 0.08)
+
+  // 目
+  ctx.fillStyle = '#0a0a1a'
+  ctx.fillRect(x + s * 0.36, y + s * 0.24, s * 0.06, s * 0.06)
+  ctx.fillRect(x + s * 0.56, y + s * 0.24, s * 0.06, s * 0.06)
+
+  // ハンマー
+  ctx.fillStyle = '#aaaaaa'
+  ctx.fillRect(x + s * 0.7, y + s * 0.2, s * 0.15, s * 0.12)
+  ctx.fillStyle = '#664422'
+  ctx.fillRect(x + s * 0.74, y + s * 0.32, s * 0.06, s * 0.3)
+
+  // 「!」マーク
+  ctx.fillStyle = '#ffcc44'
+  ctx.font = `bold ${Math.floor(s * 0.35)}px monospace`
+  ctx.textAlign = 'center'
+  ctx.fillText('!', x + s * 0.5, y + s * 0.06)
+}

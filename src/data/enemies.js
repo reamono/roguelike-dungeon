@@ -6,7 +6,7 @@ export const ENEMY_TYPES = [
     baseAttack: 3,
     baseDefense: 1,
     baseExp: 5,
-    baseGold: 3,
+    baseGold: 2,
     minFloor: 1,
     maxFloor: 5,
     color: '#44cc88',
@@ -14,23 +14,24 @@ export const ENEMY_TYPES = [
   {
     name: 'コウモリ',
     sprite: 'bat',
-    baseHp: 6,
-    baseAttack: 4,
+    baseHp: 8,
+    baseAttack: 6,
     baseDefense: 0,
     baseExp: 6,
-    baseGold: 4,
+    baseGold: 2,
     minFloor: 1,
     maxFloor: 8,
     color: '#aa66cc',
+    special: 'double_attack',
   },
   {
     name: 'ゴブリン',
     sprite: 'goblin',
-    baseHp: 15,
-    baseAttack: 6,
-    baseDefense: 2,
+    baseHp: 20,
+    baseAttack: 8,
+    baseDefense: 3,
     baseExp: 12,
-    baseGold: 8,
+    baseGold: 4,
     minFloor: 3,
     maxFloor: 10,
     color: '#66aa44',
@@ -38,11 +39,11 @@ export const ENEMY_TYPES = [
   {
     name: 'スケルトン',
     sprite: 'skeleton',
-    baseHp: 20,
-    baseAttack: 8,
-    baseDefense: 4,
+    baseHp: 28,
+    baseAttack: 11,
+    baseDefense: 5,
     baseExp: 18,
-    baseGold: 12,
+    baseGold: 6,
     minFloor: 5,
     maxFloor: 15,
     color: '#ccccaa',
@@ -50,26 +51,28 @@ export const ENEMY_TYPES = [
   {
     name: 'オーク',
     sprite: 'orc',
-    baseHp: 30,
-    baseAttack: 12,
-    baseDefense: 5,
+    baseHp: 42,
+    baseAttack: 16,
+    baseDefense: 7,
     baseExp: 25,
-    baseGold: 18,
+    baseGold: 9,
     minFloor: 8,
     maxFloor: 20,
     color: '#886644',
+    special: 'summon',
   },
   {
     name: 'デーモン',
     sprite: 'demon',
-    baseHp: 40,
-    baseAttack: 16,
-    baseDefense: 8,
+    baseHp: 56,
+    baseAttack: 22,
+    baseDefense: 10,
     baseExp: 40,
-    baseGold: 30,
+    baseGold: 15,
     minFloor: 12,
     maxFloor: 99,
     color: '#cc4444',
+    special: 'explode',
   },
 ]
 
@@ -84,7 +87,9 @@ export function getEnemyTypesForFloor(floor) {
  * フロア補正付きの敵ステータスを算出
  */
 export function scaleEnemy(type, floor) {
-  const scaling = 1 + (floor - type.minFloor) * 0.1
+  const depth = floor - type.minFloor
+  // 後半ほど急カーブ: 線形 + 指数的な上昇
+  const scaling = 1 + depth * 0.12 + Math.pow(depth, 1.4) * 0.02
   return {
     hp: Math.floor(type.baseHp * scaling),
     maxHp: Math.floor(type.baseHp * scaling),
@@ -92,5 +97,6 @@ export function scaleEnemy(type, floor) {
     defense: Math.floor(type.baseDefense * scaling),
     exp: Math.floor(type.baseExp * scaling),
     gold: Math.floor(type.baseGold * scaling),
+    special: type.special || null,
   }
 }

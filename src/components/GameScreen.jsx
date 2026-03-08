@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import {
   createInitialState, movePlayer, descendStairs,
   useItemFromInventory, dropItemFromInventory, sortInventory,
-  selectSkill, dismissBossWarning,
+  selectSkill, dismissBossWarning, dismissBlacksmith, forgeItem,
 } from '../game/GameState'
 import { useInput } from '../hooks/useInput'
 import Canvas from './Canvas'
@@ -16,6 +16,7 @@ import LogPanel from './LogPanel'
 import BossWarning from './BossWarning'
 import BossHPBar from './BossHPBar'
 import Minimap from './Minimap'
+import BlacksmithModal from './BlacksmithModal'
 import { sfxAttack, sfxHit, sfxPickup, sfxLevelUp, sfxGameOver, sfxGold, sfxStairs, initAudio } from '../utils/sound'
 
 export default function GameScreen({ bonuses, onGameOver }) {
@@ -57,6 +58,14 @@ export default function GameScreen({ bonuses, onGameOver }) {
 
   const handleDismissBossWarning = useCallback(() => {
     setState((prev) => dismissBossWarning(prev))
+  }, [])
+
+  const handleDismissBlacksmith = useCallback(() => {
+    setState((prev) => dismissBlacksmith(prev))
+  }, [])
+
+  const handleForge = useCallback((baseId, materialId) => {
+    setState((prev) => forgeItem(prev, baseId, materialId))
   }, [])
 
   const handleTickPopups = useCallback(() => {
@@ -169,6 +178,14 @@ export default function GameScreen({ bonuses, onGameOver }) {
           key={state.floor}
           bossName={state.bossWarning}
           onDismiss={handleDismissBossWarning}
+        />
+      )}
+
+      {state.showBlacksmith && (
+        <BlacksmithModal
+          player={state.player}
+          onForge={handleForge}
+          onClose={handleDismissBlacksmith}
         />
       )}
 

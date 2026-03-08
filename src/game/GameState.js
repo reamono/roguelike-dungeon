@@ -1,6 +1,6 @@
 import { generateFloor, generateBossFloor } from './dungeon'
 import { computeFOV } from './fov'
-import { calcPlayerDamage, getPlayerStats, checkEvasion } from './combat'
+import { calcPlayerDamage, getPlayerStats, checkEvasion, applyShieldEnchant, getThornsDamage } from './combat'
 import { processEnemyTurns } from './enemyAI'
 import { processBossTurn } from './bossAI'
 import { TILE, MAP_WIDTH, MAP_HEIGHT } from '../utils/constants'
@@ -34,6 +34,7 @@ function createPlayer(bonuses) {
     gold: 0,
     killCount: 0,
     maxInventory: BASE_MAX_INVENTORY + (b.extraInventory || 0),
+    turnCount: 0,
   }
 }
 
@@ -65,6 +66,7 @@ function spawnEnemies(rooms, playerStart, floor, tiles) {
         x,
         y,
         ...scaled,
+        _floor: floor,
       })
       break
     }
@@ -105,7 +107,7 @@ function spawnItems(rooms, playerStart, floor, tiles, enemies, skills) {
 
 function spawnFloorGold(rooms, playerStart, floor, tiles, enemies, floorItems) {
   const golds = []
-  const goldCount = randInt(1, 3) + Math.floor(floor * 0.3)
+  const goldCount = randInt(1, 2) + Math.floor(floor * 0.15)
   for (let i = 0; i < goldCount; i++) {
     const room = pick(rooms)
     let attempts = 0
@@ -119,7 +121,7 @@ function spawnFloorGold(rooms, playerStart, floor, tiles, enemies, floorItems) {
       if (golds.some((g) => g.x === x && g.y === y)) continue
       if (tiles[y][x] === TILE.WALL) continue
 
-      const amount = randInt(3, 8) + Math.floor(floor * 1.5)
+      const amount = randInt(2, 5) + Math.floor(floor * 0.8)
       golds.push({
         id: `gold_${_nextGoldId++}`,
         type: 'gold',
@@ -164,10 +166,26 @@ function createBoss(bossData, bossStart) {
   }
 }
 
+function trySpawnBlacksmith(rooms, playerStart, floor, tiles, enemies, floorItems) {
+  // 10F以降、10%の確率で出現
+  if (floor < 10 || Math.random() >= 0.10) return null
+  const room = pick(rooms)
+  for (let attempts = 0; attempts < 20; attempts++) {
+    const x = randInt(room.x + 1, room.x + room.width - 2)
+    const y = randInt(room.y + 1, room.y + room.height - 2)
+    if (x === playerStart.x && y === playerStart.y) continue
+    if (enemies.some((e) => e.x === x && e.y === y)) continue
+    if (floorItems.some((it) => it.x === x && it.y === y)) continue
+    if (tiles[y][x] === TILE.WALL) continue
+    return { x, y }
+  }
+  return null
+}
+
 function buildFloorState(floor, player, prevLog) {
   const boss = isBossFloor(floor) ? getBossForFloor(floor) : null
 
-  let floorData, enemies, floorItems
+  let floorData, enemies, floorItems, blacksmith = null
   if (boss) {
     floorData = generateBossFloor()
     enemies = []
@@ -179,6 +197,8 @@ function buildFloorState(floor, player, prevLog) {
     // 床ゴールドを追加
     const floorGold = spawnFloorGold(floorData.rooms, floorData.playerStart, floor, floorData.tiles, enemies, floorItems)
     floorItems = [...floorItems, ...floorGold]
+    // 鍛冶屋
+    blacksmith = trySpawnBlacksmith(floorData.rooms, floorData.playerStart, floor, floorData.tiles, enemies, floorItems)
   }
 
   const revealed = Array.from({ length: MAP_HEIGHT }, () =>
@@ -208,6 +228,9 @@ function buildFloorState(floor, player, prevLog) {
     boss: boss ? createBoss(boss, floorData.bossStart) : null,
     bossWarning: boss ? boss.name : null,
     stairsLocked: !!boss,
+    // 鍛冶屋NPC
+    blacksmith,
+    showBlacksmith: false,
   }
 }
 
@@ -257,9 +280,29 @@ export function movePlayer(state, dx, dy) {
   }
 
   // 移動
-  const newPlayer = { ...state.player, x: nx, y: ny }
+  const newPlayer = { ...state.player, x: nx, y: ny, turnCount: (state.player.turnCount || 0) + 1 }
   let message = state.message
   const newPopups = []
+
+  // 自然回復: 5ターンごとにHP1回復
+  if (newPlayer.turnCount % 5 === 0 && newPlayer.hp < newPlayer.maxHp && newPlayer.hp > 0) {
+    newPlayer.hp = Math.min(newPlayer.hp + 1, newPlayer.maxHp)
+  }
+
+  // 鍛冶屋チェック
+  if (state.blacksmith && nx === state.blacksmith.x && ny === state.blacksmith.y) {
+    message = '鍛冶屋がいる！ 同じ種類の装備を2つ渡すと強化できる'
+    const fov = computeFOV(state.tiles, newPlayer, state.rooms, state.revealed)
+    return {
+      ...state,
+      player: newPlayer,
+      visible: fov.visible,
+      revealed: fov.revealed,
+      message,
+      messageLog: appendLog(state.messageLog, message),
+      showBlacksmith: true,
+    }
+  }
 
   // 階段チェック
   if (nx === state.stairs.x && ny === state.stairs.y) {
@@ -354,7 +397,8 @@ function attackBoss(state) {
   const boss = state.boss
   const { attack } = getPlayerStats(state.player)
   const skills = state.player.skills || []
-  const { damage, isCritical, isFireSlash } = calcPlayerDamage(attack, boss.defense, skills)
+  const weapon = state.player.equipment.weapon
+  const { damage, isCritical, isFireSlash, isLifesteal, lifestealAmount, isPoisonApplied } = calcPlayerDamage(attack, boss.defense, skills, weapon)
   const newBossHp = boss.hp - damage
 
   let popupColor = '#ffcc44'
@@ -370,7 +414,14 @@ function attackBoss(state) {
   else if (isFireSlash) message = `火炎斬り！ ${boss.name}に${damage}のダメージ！`
 
   let newBoss = { ...boss, hp: Math.max(0, newBossHp) }
+  if (isPoisonApplied && newBossHp > 0) {
+    newBoss.poison = { turns: 3, damage: 3 }
+  }
   let newPlayer = { ...state.player }
+  // HP吸収
+  if (isLifesteal && lifestealAmount > 0) {
+    newPlayer.hp = Math.min(newPlayer.maxHp, newPlayer.hp + lifestealAmount)
+  }
   let pendingSkillChoice = null
   let levelUpFlash = false
   let stairsLocked = state.stairsLocked
@@ -490,7 +541,8 @@ function attackBoss(state) {
 function attackEnemy(state, enemy) {
   const { attack } = getPlayerStats(state.player)
   const skills = state.player.skills || []
-  const { damage, isCritical, isFireSlash } = calcPlayerDamage(attack, enemy.defense, skills)
+  const weapon = state.player.equipment.weapon
+  const { damage, isCritical, isFireSlash, isLifesteal, lifestealAmount, isPoisonApplied } = calcPlayerDamage(attack, enemy.defense, skills, weapon)
   const newHp = enemy.hp - damage
 
   let popupColor = '#ffcc44'
@@ -507,10 +559,17 @@ function attackEnemy(state, enemy) {
   let message = `${enemy.name}に${damage}のダメージ！`
   if (isCritical) message = `会心の一撃！ ${enemy.name}に${damage}のダメージ！`
   else if (isFireSlash) message = `火炎斬り！ ${enemy.name}に${damage}のダメージ！`
+  if (isPoisonApplied) message += ' 毒を付与した！'
 
   let expGain = 0
   const newEnemies = state.enemies.map((e) => {
-    if (e.id === enemy.id) return { ...e, hp: Math.max(0, newHp) }
+    if (e.id === enemy.id) {
+      const updated = { ...e, hp: Math.max(0, newHp) }
+      if (isPoisonApplied && newHp > 0) {
+        updated.poison = { turns: 3, damage: 3 }
+      }
+      return updated
+    }
     return e
   })
 
@@ -523,6 +582,12 @@ function attackEnemy(state, enemy) {
   let newPlayer = { ...state.player }
   let pendingSkillChoice = null
   let levelUpFlash = false
+
+  // HP吸収
+  if (isLifesteal && lifestealAmount > 0) {
+    newPlayer.hp = Math.min(newPlayer.maxHp, newPlayer.hp + lifestealAmount)
+    message += ` HP${lifestealAmount}吸収！`
+  }
 
   if (expGain > 0) {
     newPlayer.exp += expGain
@@ -577,11 +642,37 @@ function attackEnemy(state, enemy) {
 function processEnemyTurn(enemies, player, tiles) {
   const { defense } = getPlayerStats(player)
   const skills = player.skills || []
-  const { enemies: movedEnemies, damageEvents } = processEnemyTurns(enemies, player, defense, tiles)
+  const shield = player.equipment.shield
+
+  // 毒ダメージ処理 & ターン減少
+  let poisonPopups = []
+  let poisonMsg = null
+  const afterPoisonEnemies = enemies.map((e) => {
+    if (e.poison && e.poison.turns > 0 && e.hp > 0) {
+      const newHp = Math.max(0, e.hp - e.poison.damage)
+      const newTurns = e.poison.turns - 1
+      poisonPopups.push({
+        id: Date.now() + Math.random(),
+        x: e.x, y: e.y,
+        text: `${e.poison.damage}`, color: '#88cc44', timer: 30,
+      })
+      poisonMsg = `${e.name}は毒で${e.poison.damage}ダメージ！`
+      return { ...e, hp: newHp, poison: newTurns > 0 ? { ...e.poison, turns: newTurns } : null }
+    }
+    return e
+  }).filter((e) => e.hp > 0)
+
+  const { enemies: movedEnemies, damageEvents } = processEnemyTurns(afterPoisonEnemies, player, defense, tiles)
 
   let totalDamage = 0
-  const damagePopups = []
-  let message = null
+  const damagePopups = [...poisonPopups]
+  let message = poisonMsg
+
+  // 反撃ダメージ
+  const thornsDmg = getThornsDamage(shield)
+
+  // 被ダメージ後の敵を追跡
+  let finalEnemies = movedEnemies
 
   for (const event of damageEvents) {
     // 見切りスキル: 回避判定
@@ -598,16 +689,31 @@ function processEnemyTurn(enemies, player, tiles) {
       continue
     }
 
-    totalDamage += event.damage
+    // 盾付与効果でダメージ軽減
+    let dmg = event.isExplode ? event.damage : applyShieldEnchant(event.damage, shield)
+
+    totalDamage += dmg
     damagePopups.push({
       id: Date.now() + Math.random(),
       x: event.x,
       y: event.y,
-      text: `${event.damage}`,
+      text: `${dmg}`,
       color: '#ff4444',
       timer: 30,
     })
-    message = `${event.enemyName}から${event.damage}のダメージ！`
+    message = event.isExplode
+      ? `${event.enemyName}が自爆した！ ${dmg}のダメージ！`
+      : `${event.enemyName}から${dmg}のダメージ！`
+
+    // 反撃ダメージ
+    if (thornsDmg > 0 && !event.isExplode) {
+      finalEnemies = finalEnemies.map((e) => {
+        if (e.name === event.enemyName && e.hp > 0) {
+          return { ...e, hp: Math.max(0, e.hp - thornsDmg) }
+        }
+        return e
+      })
+    }
   }
 
   const newHp = player.hp - totalDamage
@@ -615,7 +721,7 @@ function processEnemyTurn(enemies, player, tiles) {
 
   return {
     player: { ...player, hp: Math.max(0, newHp) },
-    enemies: movedEnemies,
+    enemies: finalEnemies,
     damagePopups,
     message,
     gameOver,
@@ -680,7 +786,11 @@ export function useItemFromInventory(state, itemId) {
   if (!item) return state
 
   if (item.type === 'potion') {
-    const healed = Math.min(item.stats.heal, state.player.maxHp - state.player.hp)
+    let healAmount = item.stats.heal || 0
+    if (item.stats.healPercent) {
+      healAmount = Math.floor(state.player.maxHp * item.stats.healPercent / 100)
+    }
+    const healed = Math.min(healAmount, state.player.maxHp - state.player.hp)
     const msg = `${item.name}を使った！ HPが${healed}回復した`
     return {
       ...state,
@@ -754,6 +864,68 @@ export function sortInventory(state) {
   return {
     ...state,
     player: { ...state.player, inventory: sorted },
+  }
+}
+
+export function dismissBlacksmith(state) {
+  return { ...state, showBlacksmith: false }
+}
+
+/**
+ * 鍛冶屋で装備を強化する
+ * baseItemId: 強化するベース装備のID
+ * materialItemId: 素材として消費する装備のID
+ * 同じtypeの装備2つを渡すと、ベース装備を+1強化（最大+5）
+ */
+export function forgeItem(state, baseItemId, materialItemId) {
+  if (!state.showBlacksmith) return state
+
+  const inv = state.player.inventory
+  const equipped = state.player.equipment
+  // ベースはインベントリまたは装備中から探す
+  let baseItem = inv.find((i) => i.id === baseItemId)
+  let baseIsEquipped = null
+  if (!baseItem) {
+    if (equipped.weapon?.id === baseItemId) { baseItem = equipped.weapon; baseIsEquipped = 'weapon' }
+    else if (equipped.shield?.id === baseItemId) { baseItem = equipped.shield; baseIsEquipped = 'shield' }
+  }
+  const materialItem = inv.find((i) => i.id === materialItemId)
+  if (!baseItem || !materialItem) return state
+  if (baseItem.type !== materialItem.type) return state
+  if ((baseItem.enhance || 0) >= 5) return state
+
+  const enhanced = { ...baseItem, enhance: (baseItem.enhance || 0) + 1 }
+  // 名前に+N表示を更新
+  const baseName = enhanced.name.replace(/\+\d+$/, '').trim()
+  enhanced.name = `${baseName}+${enhanced.enhance}`
+  // ステータス更新（説明文）
+  if (enhanced.type === 'weapon') {
+    const totalAtk = (enhanced.stats.attack || 0) + enhanced.enhance * 2
+    enhanced.description = `攻撃力+${totalAtk}`
+  } else if (enhanced.type === 'shield') {
+    const totalDef = (enhanced.stats.defense || 0) + enhanced.enhance * 2
+    enhanced.description = `防御力+${totalDef}`
+  }
+
+  let newInventory = inv.filter((i) => i.id !== materialItemId)
+  let newEquipment = { ...equipped }
+  if (baseIsEquipped) {
+    newEquipment[baseIsEquipped] = enhanced
+  } else {
+    newInventory = newInventory.map((i) => i.id === baseItemId ? enhanced : i)
+  }
+
+  const msg = `${enhanced.name}に強化した！`
+  return {
+    ...state,
+    player: {
+      ...state.player,
+      inventory: newInventory,
+      equipment: newEquipment,
+    },
+    showBlacksmith: false,
+    message: msg,
+    messageLog: appendLog(state.messageLog, msg),
   }
 }
 

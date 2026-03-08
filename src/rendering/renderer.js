@@ -2,14 +2,14 @@ import { TILE_SIZE, TILE, MAP_WIDTH, MAP_HEIGHT } from '../utils/constants'
 import { getCameraOffset } from './camera'
 import {
   drawWall, drawFloor, drawCorridor, drawStairs,
-  drawPlayer, drawEnemy, drawBoss, drawItem, drawGold, drawDamagePopup,
+  drawPlayer, drawEnemy, drawBoss, drawItem, drawGold, drawDamagePopup, drawBlacksmith,
 } from './sprites'
 
 /**
  * ゲーム画面を描画
  */
 export function renderGame(ctx, canvas, state) {
-  const { tiles, player, visible, revealed, enemies, floorItems, damagePopups, boss, stairsLocked } = state
+  const { tiles, player, visible, revealed, enemies, floorItems, damagePopups, boss, stairsLocked, blacksmith } = state
   const w = canvas.width
   const h = canvas.height
 
@@ -100,6 +100,13 @@ export function renderGame(ctx, canvas, state) {
       const by = boss.y * TILE_SIZE + offsetY
       drawBoss(ctx, bx, by, boss)
     }
+  }
+
+  // 鍛冶屋NPC描画
+  if (blacksmith && visible[blacksmith.y]?.[blacksmith.x]) {
+    const bsx = blacksmith.x * TILE_SIZE + offsetX
+    const bsy = blacksmith.y * TILE_SIZE + offsetY
+    drawBlacksmith(ctx, bsx, bsy)
   }
 
   // プレイヤー描画

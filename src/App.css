@@ -1349,6 +1349,212 @@
   transform: scale(0.97);
 }
 
+/* Enchantment tags in inventory */
+.equip-clickable {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.equip-enchant {
+  font-size: 0.6rem;
+  color: #cc88ff;
+  background: #2a1a3e;
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-left: 4px;
+}
+
+.equip-detail {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 12px;
+  background: #0f0f24;
+  border: 1px solid #444;
+  border-radius: 6px;
+  margin-top: 6px;
+  animation: fadeIn 0.15s ease;
+}
+
+.equip-detail-name {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #cc88ff;
+  flex-shrink: 0;
+}
+
+.equip-detail-desc {
+  font-size: 0.7rem;
+  color: #8888aa;
+  line-height: 1.4;
+}
+
+.inv-enchant-tag {
+  color: #cc88ff;
+  font-weight: 700;
+}
+
+/* Blacksmith Modal */
+.blacksmith-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 180;
+  animation: fadeIn 0.3s ease;
+}
+
+.blacksmith-panel {
+  background: linear-gradient(180deg, #1a1a2e 0%, #0f0f20 100%);
+  border: 2px solid #886644;
+  border-radius: 16px;
+  padding: 20px;
+  width: 92%;
+  max-width: 400px;
+  max-height: 80vh;
+  overflow-y: auto;
+  animation: slideUp 0.3s ease;
+}
+
+.blacksmith-title {
+  font-size: 1.2rem;
+  font-weight: 900;
+  color: #ffaa44;
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+.blacksmith-desc {
+  font-size: 0.75rem;
+  color: #8888aa;
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.forge-section {
+  margin-bottom: 16px;
+}
+
+.forge-label {
+  font-size: 0.7rem;
+  color: #aaaacc;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.forge-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.forge-empty {
+  font-size: 0.75rem;
+  color: #555;
+  text-align: center;
+  padding: 8px;
+}
+
+.forge-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #1a1a3e;
+  border: 2px solid #2a2a5a;
+  border-radius: 10px;
+  color: #ccccee;
+  font-family: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.forge-item:active {
+  background: #2a2a5a;
+}
+
+.forge-selected {
+  border-color: #ffaa44;
+  background: #2a2a1a;
+}
+
+.forge-maxed {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.forge-item-name {
+  flex: 1;
+  font-weight: 700;
+}
+
+.forge-equipped {
+  font-size: 0.6rem;
+  color: #44aaff;
+  background: #0f0f24;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.forge-enchant {
+  font-size: 0.6rem;
+  color: #cc88ff;
+  background: #2a1a3e;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.forge-enhance {
+  font-size: 0.7rem;
+  color: #ffaa44;
+  font-weight: 700;
+}
+
+.blacksmith-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.forge-btn {
+  padding: 12px 24px;
+  background: linear-gradient(180deg, #cc8822 0%, #aa6611 100%);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 800;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.forge-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.forge-btn:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.forge-close-btn {
+  padding: 12px 24px;
+  background: #2a2a5a;
+  color: #aaaacc;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* Safe area padding for notched phones */
 @supports (padding-bottom: env(safe-area-inset-bottom)) {
   .dpad {

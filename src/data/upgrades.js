@@ -5,7 +5,7 @@ export const UPGRADES = [
     name: '生命力強化',
     description: '最大HP +10',
     baseCost: 100,
-    costMultiplier: 1.5,
+    costMultiplier: 1.7,
     apply: (bonuses, count) => { bonuses.maxHp += 10 * count },
   },
   {
@@ -13,7 +13,7 @@ export const UPGRADES = [
     name: '攻撃力強化',
     description: '基礎攻撃力 +3',
     baseCost: 150,
-    costMultiplier: 1.5,
+    costMultiplier: 1.7,
     apply: (bonuses, count) => { bonuses.baseAttack += 3 * count },
   },
   {
@@ -21,7 +21,7 @@ export const UPGRADES = [
     name: '防御力強化',
     description: '基礎防御力 +3',
     baseCost: 150,
-    costMultiplier: 1.5,
+    costMultiplier: 1.7,
     apply: (bonuses, count) => { bonuses.baseDefense += 3 * count },
   },
   {
@@ -29,7 +29,7 @@ export const UPGRADES = [
     name: '持ち物枠拡張',
     description: '初期アイテム枠 +1',
     baseCost: 200,
-    costMultiplier: 1.8,
+    costMultiplier: 2.0,
     apply: (bonuses, count) => { bonuses.extraInventory += count },
   },
   {
@@ -37,7 +37,7 @@ export const UPGRADES = [
     name: '備蓄の心得',
     description: '回復薬1個持ちスタート',
     baseCost: 80,
-    costMultiplier: 1.6,
+    costMultiplier: 1.8,
     apply: (bonuses, count) => { bonuses.startPotions += count },
   },
 ]
