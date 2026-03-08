@@ -174,17 +174,31 @@ export function drawGold(ctx, screenX, screenY) {
  * ダメージポップアップを描画
  */
 export function drawDamagePopup(ctx, screenX, screenY, popup) {
-  const floatY = screenY - (30 - popup.timer) * 1.2
+  const progress = (30 - popup.timer) / 30
+  const floatY = screenY - progress * 36
   const alpha = Math.min(1, popup.timer / 10)
+
+  // スケールバウンス: 最初大きく、すぐ通常サイズに
+  let scale = 1
+  if (popup.timer > 25) {
+    scale = 1 + (popup.timer - 25) * 0.12
+  }
+
+  const cx = screenX + TILE_SIZE / 2
+  const fontSize = popup.text === 'MISS' ? 12 : 16
 
   ctx.save()
   ctx.globalAlpha = alpha
-  ctx.font = 'bold 14px monospace'
+  ctx.translate(cx, floatY)
+  ctx.scale(scale, scale)
+  ctx.font = `bold ${fontSize}px monospace`
   ctx.textAlign = 'center'
+  // 縁取り（2重影）
   ctx.fillStyle = '#000000'
-  ctx.fillText(popup.text, screenX + TILE_SIZE / 2 + 1, floatY + 1)
+  ctx.fillText(popup.text, 1, 1)
+  ctx.fillText(popup.text, -1, -1)
   ctx.fillStyle = popup.color
-  ctx.fillText(popup.text, screenX + TILE_SIZE / 2, floatY)
+  ctx.fillText(popup.text, 0, 0)
   ctx.restore()
 }
 

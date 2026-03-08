@@ -717,6 +717,46 @@ export function useItemFromInventory(state, itemId) {
   return state
 }
 
+export function dropItemFromInventory(state, itemId) {
+  if (state.gameOver) return state
+
+  const item = state.player.inventory.find((i) => i.id === itemId)
+  if (!item) return state
+
+  const droppedItem = { ...item, x: state.player.x, y: state.player.y }
+  const msg = `${item.name}を足元に置いた`
+  return {
+    ...state,
+    player: {
+      ...state.player,
+      inventory: state.player.inventory.filter((i) => i.id !== itemId),
+    },
+    floorItems: [...state.floorItems, droppedItem],
+    message: msg,
+    messageLog: appendLog(state.messageLog, msg),
+  }
+}
+
+export function sortInventory(state) {
+  if (state.gameOver) return state
+
+  const typeOrder = { weapon: 0, shield: 1, potion: 2 }
+  const rarityOrder = { rare: 0, uncommon: 1, common: 2 }
+  const sorted = [...state.player.inventory].sort((a, b) => {
+    const ta = typeOrder[a.type] ?? 3
+    const tb = typeOrder[b.type] ?? 3
+    if (ta !== tb) return ta - tb
+    const ra = rarityOrder[a.rarity] ?? 3
+    const rb = rarityOrder[b.rarity] ?? 3
+    return ra - rb
+  })
+
+  return {
+    ...state,
+    player: { ...state.player, inventory: sorted },
+  }
+}
+
 export function restartGame(bonuses) {
   return createInitialState(bonuses)
 }

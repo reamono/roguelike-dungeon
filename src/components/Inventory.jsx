@@ -1,15 +1,20 @@
 import { useState } from 'react'
 
-export default function Inventory({ player, onUseItem, onClose }) {
+export default function Inventory({ player, onUseItem, onDropItem, onSort, onClose }) {
   const { inventory, equipment, skills } = player
+  const maxInv = player.maxInventory || 10
   const [selectedSkill, setSelectedSkill] = useState(null)
+  const [confirmDrop, setConfirmDrop] = useState(null)
 
   return (
     <div className="inventory-overlay" onClick={onClose}>
       <div className="inventory-panel" onClick={(e) => e.stopPropagation()}>
         <div className="inventory-header">
-          <h3>持ち物</h3>
-          <button className="inv-close-btn" onClick={onClose}>✕</button>
+          <h3>持ち物 <span className="inv-capacity">{inventory.length}/{maxInv}</span></h3>
+          <div className="inv-header-actions">
+            <button className="inv-sort-btn" onClick={onSort}>整理</button>
+            <button className="inv-close-btn" onClick={onClose}>&#x2715;</button>
+          </div>
         </div>
 
         {/* 装備中 */}
@@ -61,19 +66,52 @@ export default function Inventory({ player, onUseItem, onClose }) {
             <div className="inv-empty">アイテムがない</div>
           )}
           {inventory.map((item) => (
-            <button
-              key={item.id}
-              className={`inv-item rarity-${item.rarity}`}
-              onClick={() => onUseItem(item.id)}
-            >
-              <span className="inv-item-name">{item.name}</span>
-              <span className="inv-item-desc">{item.description}</span>
-              <span className="inv-item-action">
-                {item.type === 'potion' ? '使う' : '装備'}
-              </span>
-            </button>
+            <div key={item.id} className={`inv-item rarity-${item.rarity}`}>
+              <button
+                className="inv-item-main"
+                onClick={() => onUseItem(item.id)}
+              >
+                <span className="inv-item-name">{item.name}</span>
+                <span className="inv-item-desc">{item.description}</span>
+                <span className="inv-item-action">
+                  {item.type === 'potion' ? '使う' : '装備'}
+                </span>
+              </button>
+              <button
+                className="inv-drop-btn"
+                onClick={() => setConfirmDrop(item)}
+                title="捨てる"
+              >
+                捨
+              </button>
+            </div>
           ))}
         </div>
+
+        {/* 捨てる確認ダイアログ */}
+        {confirmDrop && (
+          <div className="inv-confirm-overlay" onClick={() => setConfirmDrop(null)}>
+            <div className="inv-confirm-dialog" onClick={(e) => e.stopPropagation()}>
+              <p className="inv-confirm-text">
+                <strong>{confirmDrop.name}</strong>を捨てますか？
+              </p>
+              <div className="inv-confirm-btns">
+                <button
+                  className="inv-confirm-yes"
+                  onClick={() => { onDropItem(confirmDrop.id); setConfirmDrop(null) }}
+                >
+                  捨てる
+                </button>
+                <button
+                  className="inv-confirm-no"
+                  onClick={() => setConfirmDrop(null)}
+                >
+                  やめる
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
