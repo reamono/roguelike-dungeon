@@ -1,0 +1,124 @@
+/* Game Screen Layout */
+.game-screen {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+/* Status Panel */
+.status-panel {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: #0f0f24;
+  border-bottom: 2px solid #1a1a3e;
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.status-floor {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  background: #1a1a3e;
+  padding: 4px 10px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.status-label {
+  font-size: 0.7rem;
+  color: #6a6a9a;
+  font-weight: 700;
+}
+
+.status-floor-num {
+  font-size: 1.2rem;
+  font-weight: 900;
+  color: #44aaff;
+  min-width: 1.5em;
+  text-align: center;
+}
+
+.status-message {
+  font-size: 0.75rem;
+  color: #8888aa;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Canvas */
+.game-canvas {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  display: block;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* D-Pad */
+.dpad {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 0 16px;
+  gap: 4px;
+  background: #0a0a18;
+  border-top: 2px solid #1a1a3e;
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.dpad-row {
+  display: flex;
+  gap: 4px;
+}
+
+.dpad-btn {
+  width: 56px;
+  height: 56px;
+  border: 2px solid #2a2a5a;
+  border-radius: 12px;
+  background: #16163a;
+  color: #6a6aaa;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.1s, transform 0.1s;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.dpad-btn:active {
+  background: #2a2a6a;
+  transform: scale(0.92);
+  color: #aaaaee;
+}
+
+.dpad-center {
+  background: #1a1a44;
+  border-color: #44aaff;
+  color: #44aaff;
+  font-size: 0.9rem;
+}
+
+.dpad-center:active {
+  background: #2a3a6a;
+}
+
+/* Safe area padding for notched phones */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .dpad {
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  }
+  .status-panel {
+    padding-top: calc(8px + env(safe-area-inset-top));
+  }
+}
