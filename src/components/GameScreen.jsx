@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import {
   createInitialState, movePlayer, descendStairs,
   useItemFromInventory, selectSkill, restartGame,
+  dismissBossWarning,
 } from '../game/GameState'
 import { useInput } from '../hooks/useInput'
 import Canvas from './Canvas'
@@ -12,6 +13,8 @@ import GameOverScreen from './GameOverScreen'
 import SkillSelectModal from './SkillSelectModal'
 import LevelUpFlash from './LevelUpFlash'
 import LogPanel from './LogPanel'
+import BossWarning from './BossWarning'
+import BossHPBar from './BossHPBar'
 
 export default function GameScreen() {
   const [state, setState] = useState(createInitialState)
@@ -39,6 +42,10 @@ export default function GameScreen() {
     setShowInventory(false)
   }, [])
 
+  const handleDismissBossWarning = useCallback(() => {
+    setState((prev) => dismissBossWarning(prev))
+  }, [])
+
   const handleTickPopups = useCallback(() => {
     setState((prev) => {
       const popups = prev.damagePopups
@@ -55,6 +62,11 @@ export default function GameScreen() {
   return (
     <div className="game-screen">
       <StatusPanel floor={state.floor} player={state.player} message={state.message} onShowLog={() => setShowLog(true)} />
+
+      {state.boss && state.boss.hp > 0 && (
+        <BossHPBar boss={state.boss} />
+      )}
+
       <Canvas state={state} touchHandlers={touchHandlers} onTickPopups={handleTickPopups} />
 
       <div className="bottom-bar">
@@ -86,6 +98,14 @@ export default function GameScreen() {
         <SkillSelectModal
           choices={state.pendingSkillChoice}
           onSelect={handleSelectSkill}
+        />
+      )}
+
+      {state.bossWarning && (
+        <BossWarning
+          key={state.floor}
+          bossName={state.bossWarning}
+          onDismiss={handleDismissBossWarning}
         />
       )}
 

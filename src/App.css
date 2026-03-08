@@ -707,6 +707,104 @@
   line-height: 1.5;
 }
 
+/* Boss HP Bar */
+.boss-hp-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  background: #0a0a18;
+  border-bottom: 1px solid #1a1a3e;
+  flex-shrink: 0;
+}
+
+.boss-hp-name {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: #cc4444;
+  flex-shrink: 0;
+  min-width: 5em;
+}
+
+.boss-hp-bg {
+  flex: 1;
+  height: 14px;
+  background: #333;
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+.boss-hp-fill {
+  height: 100%;
+  border-radius: 7px;
+  transition: width 0.3s;
+}
+
+.boss-hp-text {
+  font-size: 0.7rem;
+  color: #cc8888;
+  font-weight: 700;
+  white-space: nowrap;
+  min-width: 4em;
+  text-align: right;
+}
+
+/* Boss Warning Overlay */
+.boss-warning-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 170;
+  animation: fadeIn 0.3s ease;
+}
+
+.boss-warning-content {
+  text-align: center;
+}
+
+.boss-warning-text {
+  font-size: 2.5rem;
+  font-weight: 900;
+  color: #cc4444;
+  letter-spacing: 0.3em;
+  text-shadow:
+    0 0 20px rgba(204, 68, 68, 0.8),
+    0 0 40px rgba(204, 68, 68, 0.5);
+  animation: warningPulse 0.4s ease infinite alternate;
+}
+
+.boss-warning-label {
+  font-size: 1rem;
+  color: #cc4444;
+  letter-spacing: 0.3em;
+  margin-bottom: 8px;
+  animation: fadeIn 0.3s ease;
+}
+
+.boss-warning-name {
+  font-size: 2rem;
+  font-weight: 900;
+  color: #ffcc44;
+  letter-spacing: 0.15em;
+  text-shadow:
+    0 0 15px rgba(255, 204, 68, 0.6),
+    0 0 30px rgba(255, 204, 68, 0.3);
+  animation: bossNameAppear 0.5s ease;
+}
+
+@keyframes warningPulse {
+  from { opacity: 0.6; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1.02); }
+}
+
+@keyframes bossNameAppear {
+  from { transform: scale(0.5); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
 /* Animations */
 @keyframes fadeIn {
   from { opacity: 0; }

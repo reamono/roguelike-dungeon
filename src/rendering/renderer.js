@@ -2,14 +2,14 @@ import { TILE_SIZE, TILE, MAP_WIDTH, MAP_HEIGHT } from '../utils/constants'
 import { getCameraOffset } from './camera'
 import {
   drawWall, drawFloor, drawCorridor, drawStairs,
-  drawPlayer, drawEnemy, drawItem, drawDamagePopup,
+  drawPlayer, drawEnemy, drawBoss, drawItem, drawDamagePopup,
 } from './sprites'
 
 /**
  * ゲーム画面を描画
  */
 export function renderGame(ctx, canvas, state) {
-  const { tiles, player, visible, revealed, enemies, floorItems, damagePopups } = state
+  const { tiles, player, visible, revealed, enemies, floorItems, damagePopups, boss, stairsLocked } = state
   const w = canvas.width
   const h = canvas.height
 
@@ -44,6 +44,18 @@ export function renderGame(ctx, canvas, state) {
       } else if (tile === TILE.STAIRS) {
         drawFloor(ctx, screenX, screenY)
         drawStairs(ctx, screenX, screenY)
+        // ロック中は赤い×を描画
+        if (stairsLocked) {
+          ctx.strokeStyle = '#cc4444'
+          ctx.lineWidth = 3
+          const m = TILE_SIZE * 0.2
+          ctx.beginPath()
+          ctx.moveTo(screenX + m, screenY + m)
+          ctx.lineTo(screenX + TILE_SIZE - m, screenY + TILE_SIZE - m)
+          ctx.moveTo(screenX + TILE_SIZE - m, screenY + m)
+          ctx.lineTo(screenX + m, screenY + TILE_SIZE - m)
+          ctx.stroke()
+        }
       }
 
       // 視界外だが探索済み → 暗くする
@@ -72,6 +84,17 @@ export function renderGame(ctx, canvas, state) {
       const sx = enemy.x * TILE_SIZE + offsetX
       const sy = enemy.y * TILE_SIZE + offsetY
       drawEnemy(ctx, sx, sy, enemy)
+    }
+  }
+
+  // ボス描画（2x2タイル）
+  if (boss && boss.hp > 0) {
+    const bossVisible = visible[boss.y]?.[boss.x] || visible[boss.y]?.[boss.x + 1]
+      || visible[boss.y + 1]?.[boss.x] || visible[boss.y + 1]?.[boss.x + 1]
+    if (bossVisible) {
+      const bx = boss.x * TILE_SIZE + offsetX
+      const by = boss.y * TILE_SIZE + offsetY
+      drawBoss(ctx, bx, by, boss)
     }
   }
 

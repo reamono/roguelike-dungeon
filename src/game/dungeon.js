@@ -8,6 +8,49 @@ const MAX_ROOMS = 5
 const ROOM_PADDING = 2
 
 /**
+ * ボスフロア用: 広い1部屋を生成
+ */
+export function generateBossFloor() {
+  const tiles = Array.from({ length: MAP_HEIGHT }, () =>
+    Array(MAP_WIDTH).fill(TILE.WALL)
+  )
+
+  // 大きな1部屋（マップの大部分を使う）
+  const room = {
+    x: 4,
+    y: 3,
+    width: MAP_WIDTH - 8,
+    height: MAP_HEIGHT - 6,
+  }
+  carveRoom(tiles, room)
+
+  // 階段は部屋の奥（上側中央）
+  const stairsX = Math.floor(room.x + room.width / 2)
+  const stairsY = room.y + 1
+  tiles[stairsY][stairsX] = TILE.STAIRS
+
+  // プレイヤーは部屋の手前（下側中央）
+  const playerStart = {
+    x: Math.floor(room.x + room.width / 2),
+    y: room.y + room.height - 2,
+  }
+
+  // ボスは部屋の中央付近
+  const bossStart = {
+    x: Math.floor(room.x + room.width / 2) - 1,
+    y: Math.floor(room.y + room.height / 2) - 1,
+  }
+
+  return {
+    tiles,
+    rooms: [room],
+    stairs: { x: stairsX, y: stairsY },
+    playerStart,
+    bossStart,
+  }
+}
+
+/**
  * BSP法でランダムダンジョンを生成
  * @param {number} floor - 現在のフロア番号
  * @returns {{ tiles: number[][], rooms: object[], stairs: {x:number,y:number}, playerStart: {x:number,y:number} }}

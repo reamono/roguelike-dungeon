@@ -62,6 +62,63 @@ export function drawEnemy(ctx, screenX, screenY, enemy) {
 }
 
 /**
+ * ボスを描画（2x2タイル）
+ */
+export function drawBoss(ctx, screenX, screenY, boss) {
+  const s = TILE_SIZE * 2  // 2x2タイル分
+  const x = screenX
+  const y = screenY
+  const c = boss.color
+
+  // 影
+  ctx.fillStyle = 'rgba(0,0,0,0.3)'
+  ctx.fillRect(x + s * 0.1, y + s * 0.85, s * 0.8, s * 0.1)
+
+  // 体
+  ctx.fillStyle = c
+  ctx.fillRect(x + s * 0.15, y + s * 0.3, s * 0.7, s * 0.55)
+
+  // 頭
+  ctx.fillRect(x + s * 0.2, y + s * 0.08, s * 0.6, s * 0.3)
+
+  // 角や装飾（ボスごとに異なる）
+  if (boss.sprite === 'goblin_king') {
+    // 王冠
+    ctx.fillStyle = '#ffcc44'
+    ctx.fillRect(x + s * 0.25, y + s * 0.02, s * 0.5, s * 0.08)
+    ctx.fillRect(x + s * 0.28, y - s * 0.03, s * 0.08, s * 0.08)
+    ctx.fillRect(x + s * 0.46, y - s * 0.03, s * 0.08, s * 0.08)
+    ctx.fillRect(x + s * 0.64, y - s * 0.03, s * 0.08, s * 0.08)
+  } else if (boss.sprite === 'dragon') {
+    // 角
+    ctx.fillStyle = '#882222'
+    ctx.fillRect(x + s * 0.2, y + s * 0.02, s * 0.1, s * 0.12)
+    ctx.fillRect(x + s * 0.7, y + s * 0.02, s * 0.1, s * 0.12)
+    // 翼
+    ctx.fillStyle = c
+    ctx.fillRect(x + s * 0.02, y + s * 0.25, s * 0.15, s * 0.35)
+    ctx.fillRect(x + s * 0.83, y + s * 0.25, s * 0.15, s * 0.35)
+  } else if (boss.sprite === 'lich_king') {
+    // ローブ
+    ctx.fillStyle = '#3a2a5a'
+    ctx.fillRect(x + s * 0.1, y + s * 0.35, s * 0.8, s * 0.55)
+    // 頭のフード
+    ctx.fillStyle = '#2a1a4a'
+    ctx.fillRect(x + s * 0.18, y + s * 0.05, s * 0.64, s * 0.25)
+  }
+
+  // 目（大きく光る）
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(x + s * 0.3, y + s * 0.16, s * 0.12, s * 0.1)
+  ctx.fillRect(x + s * 0.58, y + s * 0.16, s * 0.12, s * 0.1)
+  ctx.fillStyle = '#ff2222'
+  ctx.fillRect(x + s * 0.33, y + s * 0.18, s * 0.06, s * 0.06)
+  ctx.fillRect(x + s * 0.61, y + s * 0.18, s * 0.06, s * 0.06)
+
+  // HPバーはUIで表示するのでキャンバス上では描画しない
+}
+
+/**
  * 床に落ちているアイテムを描画
  */
 export function drawItem(ctx, screenX, screenY, item) {

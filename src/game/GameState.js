@@ -1,11 +1,13 @@
-import { generateFloor } from './dungeon'
+import { generateFloor, generateBossFloor } from './dungeon'
 import { computeFOV } from './fov'
 import { calcPlayerDamage, getPlayerStats, checkEvasion } from './combat'
 import { processEnemyTurns } from './enemyAI'
+import { processBossTurn } from './bossAI'
 import { TILE, MAP_WIDTH, MAP_HEIGHT } from '../utils/constants'
 import { getEnemyTypesForFloor, scaleEnemy } from '../data/enemies'
 import { getItemPoolForFloor, createItemInstance } from '../data/items'
 import { SKILL_LEVELS, getSkillChoices } from '../data/skills'
+import { isBossFloor, getBossForFloor } from '../data/bosses'
 import { randInt, pick } from '../utils/random'
 
 const MAX_INVENTORY = 10
@@ -103,17 +105,49 @@ function appendLog(log, msg) {
   return newLog
 }
 
+function createBoss(bossData, bossStart) {
+  return {
+    id: `boss_${bossData.id}`,
+    name: bossData.name,
+    sprite: bossData.sprite,
+    color: bossData.color,
+    x: bossStart.x,
+    y: bossStart.y,
+    hp: bossData.hp,
+    maxHp: bossData.hp,
+    attack: bossData.attack,
+    defense: bossData.defense,
+    exp: bossData.exp,
+    isBoss: true,
+    specialType: bossData.specialType,
+    specialInterval: bossData.specialInterval,
+    specialDesc: bossData.specialDesc,
+    dropItem: bossData.dropItem,
+    turnCount: 0,
+  }
+}
+
 function buildFloorState(floor, player, prevLog) {
-  const floorData = generateFloor(floor)
+  const boss = isBossFloor(floor) ? getBossForFloor(floor) : null
+
+  let floorData, enemies, floorItems
+  if (boss) {
+    floorData = generateBossFloor()
+    enemies = []
+    floorItems = []
+  } else {
+    floorData = generateFloor(floor)
+    enemies = spawnEnemies(floorData.rooms, floorData.playerStart, floor, floorData.tiles)
+    floorItems = spawnItems(floorData.rooms, floorData.playerStart, floor, floorData.tiles, enemies, player.skills || [])
+  }
+
   const revealed = Array.from({ length: MAP_HEIGHT }, () =>
     Array(MAP_WIDTH).fill(false)
   )
   const newPlayer = { ...player, x: floorData.playerStart.x, y: floorData.playerStart.y }
-  const enemies = spawnEnemies(floorData.rooms, floorData.playerStart, floor, floorData.tiles)
-  const floorItems = spawnItems(floorData.rooms, floorData.playerStart, floor, floorData.tiles, enemies, player.skills || [])
   const fov = computeFOV(floorData.tiles, newPlayer, floorData.rooms, revealed)
 
-  const msg = `${floor}階に降りた...`
+  const msg = boss ? `${floor}階 ボスフロアに降りた...` : `${floor}階に降りた...`
   return {
     floor,
     player: newPlayer,
@@ -130,11 +164,21 @@ function buildFloorState(floor, player, prevLog) {
     gameOver: false,
     pendingSkillChoice: null,
     levelUpFlash: false,
+    // ボス関連
+    boss: boss ? createBoss(boss, floorData.bossStart) : null,
+    bossWarning: boss ? boss.name : null,
+    stairsLocked: !!boss,
   }
 }
 
 export function createInitialState() {
   return buildFloorState(1, createPlayer())
+}
+
+// ボスの2x2タイル上かチェック
+function isOnBossTile(boss, x, y) {
+  if (!boss || boss.hp <= 0) return false
+  return x >= boss.x && x <= boss.x + 1 && y >= boss.y && y <= boss.y + 1
 }
 
 export function movePlayer(state, dx, dy) {
@@ -145,6 +189,11 @@ export function movePlayer(state, dx, dy) {
 
   if (nx < 0 || nx >= MAP_WIDTH || ny < 0 || ny >= MAP_HEIGHT) return state
   if (state.tiles[ny][nx] === TILE.WALL) return state
+
+  // ボスがいる場合、ボスタイルに移動しようとしたら攻撃
+  if (state.boss && state.boss.hp > 0 && isOnBossTile(state.boss, nx, ny)) {
+    return attackBoss(state)
+  }
 
   // 敵がいる場合は攻撃
   const targetEnemy = state.enemies.find((e) => e.x === nx && e.y === ny && e.hp > 0)
@@ -159,7 +208,11 @@ export function movePlayer(state, dx, dy) {
 
   // 階段チェック
   if (nx === state.stairs.x && ny === state.stairs.y) {
-    message = '階段を見つけた！ タップで次の階へ'
+    if (state.stairsLocked) {
+      message = '階段はボスを倒すまでロックされている！'
+    } else {
+      message = '階段を見つけた！ タップで次の階へ'
+    }
   }
 
   // アイテム拾得チェック
@@ -176,28 +229,199 @@ export function movePlayer(state, dx, dy) {
     }
   }
 
-  // 敵のターン
-  const result = processEnemyTurn(state.enemies, newPlayer, state.tiles)
+  // ボスのターン
+  let bossResult = null
+  let newBoss = state.boss
+  let addedEnemies = []
+  if (state.boss && state.boss.hp > 0) {
+    const { defense } = getPlayerStats(newPlayer)
+    bossResult = processBossTurn(state.boss, newPlayer, defense, state.tiles, state.enemies)
+    newBoss = bossResult.boss
+    addedEnemies = bossResult.summonEnemies || []
+  }
+
+  // 通常敵のターン
+  const allEnemies = [...state.enemies, ...addedEnemies]
+  const result = processEnemyTurn(allEnemies, newPlayer, state.tiles)
   const fov = computeFOV(state.tiles, result.player, state.rooms, state.revealed)
 
-  const finalMsg = result.message || message
+  // ボスダメージ処理
+  let bossPopups = []
+  let bossMsg = null
+  let totalBossDmg = 0
+  if (bossResult && bossResult.damageEvents.length > 0) {
+    const skills = result.player.skills || []
+    for (const event of bossResult.damageEvents) {
+      if (checkEvasion(skills)) {
+        bossPopups.push({ id: Date.now() + Math.random(), x: event.x, y: event.y, text: 'MISS', color: '#88aaff', timer: 30 })
+        bossMsg = `${event.enemyName}の攻撃を見切った！`
+        continue
+      }
+      totalBossDmg += event.damage
+      bossPopups.push({ id: Date.now() + Math.random(), x: event.x, y: event.y, text: `${event.damage}`, color: '#ff4444', timer: 30 })
+      bossMsg = bossResult.message
+    }
+  } else if (bossResult) {
+    bossMsg = bossResult.message
+  }
+
+  const playerAfterBoss = { ...result.player, hp: Math.max(0, result.player.hp - totalBossDmg) }
+  const gameOver = result.gameOver || playerAfterBoss.hp <= 0
+
+  const finalMsg = bossMsg || result.message || message
   let log = state.messageLog
   if (message !== state.message) log = appendLog(log, message)
+  if (bossMsg) log = appendLog(log, bossMsg)
   if (result.message) log = appendLog(log, result.message)
-  if (!result.message && message === state.message) log = state.messageLog
+  if (!bossMsg && !result.message && message === state.message) log = state.messageLog
 
   return {
     ...state,
-    player: result.player,
+    player: playerAfterBoss,
     enemies: result.enemies,
+    boss: newBoss,
     floorItems,
     visible: fov.visible,
     revealed: fov.revealed,
     message: finalMsg,
     messageLog: log,
-    damagePopups: [...newPopups, ...result.damagePopups],
-    gameOver: result.gameOver,
+    damagePopups: [...newPopups, ...bossPopups, ...result.damagePopups],
+    gameOver,
     levelUpFlash: false,
+  }
+}
+
+function attackBoss(state) {
+  const boss = state.boss
+  const { attack } = getPlayerStats(state.player)
+  const skills = state.player.skills || []
+  const { damage, isCritical, isFireSlash } = calcPlayerDamage(attack, boss.defense, skills)
+  const newBossHp = boss.hp - damage
+
+  let popupColor = '#ffcc44'
+  let popupText = `${damage}`
+  if (isCritical) { popupColor = '#ff44ff'; popupText = `${damage}!` }
+  else if (isFireSlash) { popupColor = '#ff6633' }
+
+  // ボスの中心にポップアップ
+  const popups = [{ id: Date.now(), x: boss.x + 0.5, y: boss.y, text: popupText, color: popupColor, timer: 30 }]
+
+  let message = `${boss.name}に${damage}のダメージ！`
+  if (isCritical) message = `会心の一撃！ ${boss.name}に${damage}のダメージ！`
+  else if (isFireSlash) message = `火炎斬り！ ${boss.name}に${damage}のダメージ！`
+
+  let newBoss = { ...boss, hp: Math.max(0, newBossHp) }
+  let newPlayer = { ...state.player }
+  let pendingSkillChoice = null
+  let levelUpFlash = false
+  let stairsLocked = state.stairsLocked
+  let floorItems = state.floorItems
+
+  // ボス撃破
+  if (newBossHp <= 0) {
+    message = `${boss.name}を倒した！ (${boss.exp} EXP)`
+    stairsLocked = false
+
+    // レアアイテムドロップ
+    if (boss.dropItem) {
+      const dropItem = { ...boss.dropItem, id: `drop_${Date.now()}`, x: boss.x, y: boss.y }
+      floorItems = [...floorItems, dropItem]
+      message += ` ${boss.dropItem.name}が落ちた！`
+    }
+
+    // EXP
+    newPlayer.exp += boss.exp
+    while (newPlayer.exp >= newPlayer.expToNext) {
+      newPlayer.exp -= newPlayer.expToNext
+      newPlayer.level++
+      newPlayer.maxHp += 5
+      newPlayer.hp = Math.min(newPlayer.hp + 5, newPlayer.maxHp)
+      newPlayer.baseAttack += 1
+      newPlayer.baseDefense += 1
+      newPlayer.expToNext = Math.floor(newPlayer.expToNext * 1.4)
+      message += ` レベル${newPlayer.level}に上がった！`
+      levelUpFlash = true
+
+      if (SKILL_LEVELS.includes(newPlayer.level)) {
+        const choices = getSkillChoices(newPlayer.skills.map((s) => s.id))
+        if (choices.length > 0) pendingSkillChoice = choices
+      }
+    }
+
+    const fov = computeFOV(state.tiles, newPlayer, state.rooms, state.revealed)
+    let log = appendLog(state.messageLog, message)
+
+    return {
+      ...state,
+      player: newPlayer,
+      boss: newBoss,
+      floorItems,
+      visible: fov.visible,
+      revealed: fov.revealed,
+      message,
+      messageLog: log,
+      damagePopups: popups,
+      gameOver: false,
+      stairsLocked: false,
+      pendingSkillChoice,
+      levelUpFlash,
+    }
+  }
+
+  // ボス生存中: ボスのターン
+  const { defense } = getPlayerStats(newPlayer)
+  const bossResult = processBossTurn(newBoss, newPlayer, defense, state.tiles, state.enemies)
+  newBoss = bossResult.boss
+  const addedEnemies = bossResult.summonEnemies || []
+
+  // 通常敵のターン
+  const allEnemies = [...state.enemies, ...addedEnemies]
+  const result = processEnemyTurn(allEnemies, newPlayer, state.tiles)
+  const fov = computeFOV(state.tiles, result.player, state.rooms, state.revealed)
+
+  // ボスダメージ処理
+  let bossPopups = []
+  let bossMsg = null
+  let totalBossDmg = 0
+  if (bossResult.damageEvents.length > 0) {
+    const pSkills = result.player.skills || []
+    for (const event of bossResult.damageEvents) {
+      if (checkEvasion(pSkills)) {
+        bossPopups.push({ id: Date.now() + Math.random(), x: event.x, y: event.y, text: 'MISS', color: '#88aaff', timer: 30 })
+        bossMsg = `${event.enemyName}の攻撃を見切った！`
+        continue
+      }
+      totalBossDmg += event.damage
+      bossPopups.push({ id: Date.now() + Math.random(), x: event.x, y: event.y, text: `${event.damage}`, color: '#ff4444', timer: 30 })
+      bossMsg = bossResult.message
+    }
+  } else if (bossResult.message) {
+    bossMsg = bossResult.message
+  }
+
+  const playerAfterBoss = { ...result.player, hp: Math.max(0, result.player.hp - totalBossDmg) }
+  const gameOver = result.gameOver || playerAfterBoss.hp <= 0
+
+  const finalMsg = bossMsg || result.message || message
+  let log = appendLog(state.messageLog, message)
+  if (bossMsg) log = appendLog(log, bossMsg)
+  if (result.message) log = appendLog(log, result.message)
+
+  return {
+    ...state,
+    player: playerAfterBoss,
+    enemies: result.enemies,
+    boss: newBoss,
+    floorItems,
+    visible: fov.visible,
+    revealed: fov.revealed,
+    message: finalMsg,
+    messageLog: log,
+    damagePopups: [...popups, ...bossPopups, ...result.damagePopups],
+    gameOver,
+    pendingSkillChoice,
+    levelUpFlash,
+    stairsLocked,
   }
 }
 
@@ -331,8 +555,13 @@ function processEnemyTurn(enemies, player, tiles) {
   }
 }
 
+export function dismissBossWarning(state) {
+  return { ...state, bossWarning: null }
+}
+
 export function descendStairs(state) {
   if (state.gameOver || state.pendingSkillChoice) return state
+  if (state.stairsLocked) return state
   if (state.player.x !== state.stairs.x || state.player.y !== state.stairs.y) {
     return state
   }
