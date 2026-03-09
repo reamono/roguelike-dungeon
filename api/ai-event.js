@@ -63,7 +63,7 @@ export default async function handler(req, res) {
         generationConfig: {
           responseMimeType: 'application/json',
           temperature: 0.9,
-          maxOutputTokens: 1024,
+          maxOutputTokens: 4096,
         },
       }),
     })
@@ -75,7 +75,10 @@ export default async function handler(req, res) {
     }
 
     const data = await geminiRes.json()
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text
+    const candidate = data?.candidates?.[0]
+    const text = candidate?.content?.parts?.[0]?.text
+    const finishReason = candidate?.finishReason
+    console.log('Gemini response:', { finishReason, textLength: text?.length || 0 })
     if (!text) {
       console.error('Gemini returned no text:', JSON.stringify(data).slice(0, 500))
       return res.status(500).json({ error: true })
