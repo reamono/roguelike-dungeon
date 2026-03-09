@@ -1,6 +1,9 @@
 import { UPGRADES, getUpgradeCost } from '../data/upgrades'
+import { getClassById } from '../data/classes'
 
 export default function BaseScreen({ meta, runResult, onPurchase, onStartGame }) {
+  const lastClass = meta.lastClassId ? getClassById(meta.lastClassId) : null
+
   return (
     <div className="base-screen">
       {runResult && runResult.savedAmount > 0 && (
@@ -12,6 +15,12 @@ export default function BaseScreen({ meta, runResult, onPurchase, onStartGame })
       )}
       <div className="base-header">
         <h1 className="base-title">冒険者の拠点</h1>
+        {lastClass && (
+          <div className="base-class-info">
+            <span className="base-class-icon">{lastClass.icon}</span>
+            <span className="base-class-name">{lastClass.name}</span>
+          </div>
+        )}
         <div className="base-gold">
           <span className="base-gold-label">貯蓄</span>
           <span className="base-gold-value">{meta.savedGold}G</span>

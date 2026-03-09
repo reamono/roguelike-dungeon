@@ -26,21 +26,41 @@ export function getPlayerStats(player) {
   if (skills.some((s) => s.id === 'iron_wall')) {
     defense += 5
   }
+  // ウォークライバフ
+  if (player.warCryTurns > 0) {
+    attack += 5
+  }
   return { attack, defense }
 }
 
 /**
  * プレイヤー攻撃時のダメージ計算（スキル効果 + 付与効果込み）
  */
-export function calcPlayerDamage(attack, defenderDef, skills, weapon) {
+export function calcPlayerDamage(attack, defenderDef, skills, weapon, player) {
   let damage = calcDamage(attack, defenderDef)
   let isCritical = false
   let isFireSlash = false
   let isLifesteal = false
   let isPoisonApplied = false
+  let isPowerStrike = false
+  let isFireball = false
+  let mpCost = 0
+
+  // 渾身の一撃: 20%でHP5消費して2倍
+  if (skills.some((s) => s.id === 'power_strike') && player && player.hp > 5 && Math.random() < 0.2) {
+    damage = damage * 2
+    isPowerStrike = true
+  }
+
+  // ファイアボール: MP5消費で1.8倍
+  if (skills.some((s) => s.id === 'fireball') && player && (player.mp || 0) >= 5) {
+    damage = Math.floor(damage * 1.8)
+    isFireball = true
+    mpCost += 5
+  }
 
   // 火炎斬り: 常に 1.5 倍
-  if (skills.some((s) => s.id === 'fire_slash')) {
+  if (!isFireball && skills.some((s) => s.id === 'fire_slash')) {
     damage = Math.floor(damage * 1.5)
     isFireSlash = true
   }
@@ -70,6 +90,9 @@ export function calcPlayerDamage(attack, defenderDef, skills, weapon) {
     isLifesteal,
     lifestealAmount: isLifesteal ? Math.max(1, Math.floor(damage * 0.15)) : 0,
     isPoisonApplied,
+    isPowerStrike,
+    isFireball,
+    mpCost,
   }
 }
 
@@ -100,4 +123,26 @@ export function checkEvasion(skills) {
     return true
   }
   return false
+}
+
+/**
+ * 被ダメージにバフ効果を適用（かばう・魔力の盾）
+ * mutatesPlayer: trueの場合、playerオブジェクトのmpを直接変更する
+ */
+export function applyDefensiveBuffs(damage, player) {
+  let reduced = damage
+  const skills = player.skills || []
+
+  // かばう: HP25%以下で被ダメ半減
+  if (skills.some((s) => s.id === 'guard') && player.hp <= player.maxHp * 0.25) {
+    reduced = Math.max(1, Math.floor(reduced * 0.5))
+  }
+
+  // 魔力の盾: 被攻撃時MP3消費で70%軽減
+  if (skills.some((s) => s.id === 'magic_shield') && (player.mp || 0) >= 3) {
+    reduced = Math.max(1, Math.floor(reduced * 0.3))
+    player.mp -= 3
+  }
+
+  return reduced
 }

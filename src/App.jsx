@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import GameScreen from './components/GameScreen'
 import BaseScreen from './components/BaseScreen'
 import TitleOverlay from './components/TitleOverlay'
+import ClassSelectScreen from './components/ClassSelectScreen'
 import Tutorial, { hasTutorialBeenSeen } from './components/Tutorial'
 import { loadMeta, saveMeta, processRunEnd, purchaseUpgrade } from './game/metaProgress'
 import { calcBonuses } from './data/upgrades'
@@ -15,6 +16,7 @@ export default function App() {
   const [meta, setMeta] = useState(meta0)
   const [runResult, setRunResult] = useState(null)
   const [showTutorial, setShowTutorial] = useState(false)
+  const [selectedClass, setSelectedClass] = useState(null)
 
   const handleTitleStart = useCallback(() => {
     initAudio()
@@ -26,6 +28,11 @@ export default function App() {
 
   const handleStartGame = useCallback(() => {
     initAudio()
+    setScreen('classSelect')
+  }, [])
+
+  const handleClassSelect = useCallback((classId) => {
+    setSelectedClass(classId)
     setScreen('game')
   }, [])
 
@@ -55,9 +62,13 @@ export default function App() {
     return <TitleOverlay onStart={handleTitleStart} />
   }
 
+  if (screen === 'classSelect') {
+    return <ClassSelectScreen onSelect={handleClassSelect} />
+  }
+
   if (screen === 'game') {
     const bonuses = calcBonuses(meta.upgrades)
-    return <GameScreen bonuses={bonuses} onGameOver={handleGameOver} />
+    return <GameScreen bonuses={bonuses} classId={selectedClass} onGameOver={handleGameOver} />
   }
 
   return (

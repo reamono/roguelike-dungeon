@@ -1,6 +1,6 @@
 import { generateFloor, generateBossFloor } from './dungeon'
 import { computeFOV } from './fov'
-import { calcPlayerDamage, getPlayerStats, checkEvasion, applyShieldEnchant, getThornsDamage } from './combat'
+import { calcPlayerDamage, getPlayerStats, checkEvasion, applyShieldEnchant, getThornsDamage, applyDefensiveBuffs } from './combat'
 import { processEnemyTurns } from './enemyAI'
 import { processBossTurn } from './bossAI'
 import { TILE, MAP_WIDTH, MAP_HEIGHT } from '../utils/constants'
@@ -8,6 +8,7 @@ import { getEnemyTypesForFloor, scaleEnemy } from '../data/enemies'
 import { getItemPoolForFloor, createItemInstance } from '../data/items'
 import { SKILL_LEVELS, getSkillChoices } from '../data/skills'
 import { isBossFloor, getBossForFloor } from '../data/bosses'
+import { getClassById } from '../data/classes'
 import { randInt, pick } from '../utils/random'
 
 const BASE_MAX_INVENTORY = 10
@@ -16,15 +17,16 @@ const MAX_LOG = 50
 let _nextEnemyId = 1
 let _nextGoldId = 1
 
-function createPlayer(bonuses) {
+function createPlayer(bonuses, classId) {
   const b = bonuses || {}
+  const cls = getClassById(classId)
   return {
     x: 0,
     y: 0,
-    hp: 30 + (b.maxHp || 0),
-    maxHp: 30 + (b.maxHp || 0),
-    baseAttack: 5 + (b.baseAttack || 0),
-    baseDefense: 2 + (b.baseDefense || 0),
+    hp: cls.stats.hp + (b.maxHp || 0),
+    maxHp: cls.stats.hp + (b.maxHp || 0),
+    baseAttack: cls.stats.baseAttack + (b.baseAttack || 0),
+    baseDefense: cls.stats.baseDefense + (b.baseDefense || 0),
     level: 1,
     exp: 0,
     expToNext: 20,
@@ -35,6 +37,13 @@ function createPlayer(bonuses) {
     killCount: 0,
     maxInventory: BASE_MAX_INVENTORY + (b.extraInventory || 0),
     turnCount: 0,
+    classId: cls.id,
+    mp: cls.mp,
+    maxMp: cls.maxMp,
+    // 一時バフ
+    guardTurns: 0,       // かばう残りターン
+    warCryTurns: 0,      // ウォークライ残りターン
+    magicShieldTurns: 0, // 魔力の盾残りターン
   }
 }
 
@@ -83,6 +92,10 @@ function spawnItems(rooms, playerStart, floor, tiles, enemies, skills) {
   // 強欲スキル: +2
   if (skills.some((s) => s.id === 'greed')) {
     itemCount += 2
+  }
+  // 罠感知スキル（盗賊）: +3
+  if (skills.some((s) => s.id === 'trap_sense')) {
+    itemCount += 3
   }
 
   for (let i = 0; i < itemCount; i++) {
@@ -205,6 +218,10 @@ function buildFloorState(floor, player, prevLog) {
     Array(MAP_WIDTH).fill(false)
   )
   const newPlayer = { ...player, x: floorData.playerStart.x, y: floorData.playerStart.y }
+  // ウォークライ: ボス戦開始時に自動発動
+  if (boss && (newPlayer.skills || []).some((s) => s.id === 'war_cry')) {
+    newPlayer.warCryTurns = 3
+  }
   const fov = computeFOV(floorData.tiles, newPlayer, floorData.rooms, revealed)
 
   const msg = boss ? `${floor}階 ボスフロアに降りた...` : `${floor}階に降りた...`
@@ -240,8 +257,8 @@ function buildFloorState(floor, player, prevLog) {
   }
 }
 
-export function createInitialState(bonuses) {
-  const player = createPlayer(bonuses)
+export function createInitialState(bonuses, classId) {
+  const player = createPlayer(bonuses, classId)
   // 備蓄の心得: 回復薬を持ってスタート
   if (bonuses && bonuses.startPotions > 0) {
     for (let i = 0; i < bonuses.startPotions; i++) {
@@ -289,6 +306,11 @@ export function movePlayer(state, dx, dy) {
   const newPlayer = { ...state.player, x: nx, y: ny, turnCount: (state.player.turnCount || 0) + 1 }
   let message = state.message
   const newPopups = []
+
+  // バフターン減少
+  if (newPlayer.guardTurns > 0) newPlayer.guardTurns--
+  if (newPlayer.warCryTurns > 0) newPlayer.warCryTurns--
+  if (newPlayer.magicShieldTurns > 0) newPlayer.magicShieldTurns--
 
   // 自然回復: 5ターンごとにHP1回復
   if (newPlayer.turnCount % 5 === 0 && newPlayer.hp < newPlayer.maxHp && newPlayer.hp > 0) {
@@ -350,7 +372,7 @@ export function movePlayer(state, dx, dy) {
 
   // 通常敵のターン
   const allEnemies = [...state.enemies, ...addedEnemies]
-  const result = processEnemyTurn(allEnemies, newPlayer, state.tiles)
+  const result = processEnemyTurn(allEnemies, newPlayer, state.tiles, state.rooms)
   const fov = computeFOV(state.tiles, result.player, state.rooms, state.revealed)
 
   // ボスダメージ処理
@@ -404,19 +426,23 @@ function attackBoss(state) {
   const { attack } = getPlayerStats(state.player)
   const skills = state.player.skills || []
   const weapon = state.player.equipment.weapon
-  const { damage, isCritical, isFireSlash, isLifesteal, lifestealAmount, isPoisonApplied } = calcPlayerDamage(attack, boss.defense, skills, weapon)
+  const { damage, isCritical, isFireSlash, isLifesteal, lifestealAmount, isPoisonApplied, isPowerStrike, isFireball, mpCost } = calcPlayerDamage(attack, boss.defense, skills, weapon, state.player)
   const newBossHp = boss.hp - damage
 
   let popupColor = '#ffcc44'
   let popupText = `${damage}`
-  if (isCritical) { popupColor = '#ff44ff'; popupText = `${damage}!` }
+  if (isPowerStrike) { popupColor = '#ff2222'; popupText = `${damage}!!` }
+  else if (isFireball) { popupColor = '#ff5500'; popupText = `${damage}🔥` }
+  else if (isCritical) { popupColor = '#ff44ff'; popupText = `${damage}!` }
   else if (isFireSlash) { popupColor = '#ff6633' }
 
   // ボスの中心にポップアップ
   const popups = [{ id: Date.now(), x: boss.x + 0.5, y: boss.y, text: popupText, color: popupColor, timer: 30 }]
 
   let message = `${boss.name}に${damage}のダメージ！`
-  if (isCritical) message = `会心の一撃！ ${boss.name}に${damage}のダメージ！`
+  if (isPowerStrike) message = `渾身の一撃！ ${boss.name}に${damage}のダメージ！`
+  else if (isFireball) message = `ファイアボール！ ${boss.name}に${damage}のダメージ！`
+  else if (isCritical) message = `会心の一撃！ ${boss.name}に${damage}のダメージ！`
   else if (isFireSlash) message = `火炎斬り！ ${boss.name}に${damage}のダメージ！`
 
   let newBoss = { ...boss, hp: Math.max(0, newBossHp) }
@@ -424,6 +450,10 @@ function attackBoss(state) {
     newBoss.poison = { turns: 3, damage: 3 }
   }
   let newPlayer = { ...state.player }
+  // 渾身の一撃HP消費
+  if (isPowerStrike) newPlayer.hp = Math.max(1, newPlayer.hp - 5)
+  // ファイアボールMP消費
+  if (mpCost > 0) newPlayer.mp = Math.max(0, (newPlayer.mp || 0) - mpCost)
   // HP吸収
   if (isLifesteal && lifestealAmount > 0) {
     newPlayer.hp = Math.min(newPlayer.maxHp, newPlayer.hp + lifestealAmount)
@@ -469,7 +499,7 @@ function attackBoss(state) {
       levelUpFlash = true
 
       if (SKILL_LEVELS.includes(newPlayer.level)) {
-        const choices = getSkillChoices(newPlayer.skills.map((s) => s.id))
+        const choices = getSkillChoices(newPlayer.skills.map((s) => s.id), newPlayer.classId)
         if (choices.length > 0) pendingSkillChoice = choices
       }
     }
@@ -503,7 +533,7 @@ function attackBoss(state) {
 
   // 通常敵のターン
   const allEnemies = [...state.enemies, ...addedEnemies]
-  const result = processEnemyTurn(allEnemies, newPlayer, state.tiles)
+  const result = processEnemyTurn(allEnemies, newPlayer, state.tiles, state.rooms)
   const fov = computeFOV(state.tiles, result.player, state.rooms, state.revealed)
 
   // ボスダメージ処理
@@ -557,12 +587,29 @@ function attackEnemy(state, enemy) {
   const { attack } = getPlayerStats(state.player)
   const skills = state.player.skills || []
   const weapon = state.player.equipment.weapon
-  const { damage, isCritical, isFireSlash, isLifesteal, lifestealAmount, isPoisonApplied } = calcPlayerDamage(attack, enemy.defense, skills, weapon)
+  let { damage, isCritical, isFireSlash, isLifesteal, lifestealAmount, isPoisonApplied, isPowerStrike, isFireball, mpCost } = calcPlayerDamage(attack, enemy.defense, skills, weapon, state.player)
+
+  // 奇襲スキル: 敵が未行動なら2倍ダメージ
+  let isAmbush = false
+  if (skills.some((s) => s.id === 'ambush') && (enemy.turnCount || 0) === 0) {
+    damage = damage * 2
+    isAmbush = true
+  }
+
   const newHp = enemy.hp - damage
 
   let popupColor = '#ffcc44'
   let popupText = `${damage}`
-  if (isCritical) {
+  if (isAmbush) {
+    popupColor = '#44ff44'
+    popupText = `${damage}!!`
+  } else if (isPowerStrike) {
+    popupColor = '#ff2222'
+    popupText = `${damage}!!`
+  } else if (isFireball) {
+    popupColor = '#ff5500'
+    popupText = `${damage}🔥`
+  } else if (isCritical) {
     popupColor = '#ff44ff'
     popupText = `${damage}!`
   } else if (isFireSlash) {
@@ -572,7 +619,10 @@ function attackEnemy(state, enemy) {
   const popups = [{ id: Date.now(), x: enemy.x, y: enemy.y, text: popupText, color: popupColor, timer: 30 }]
 
   let message = `${enemy.name}に${damage}のダメージ！`
-  if (isCritical) message = `会心の一撃！ ${enemy.name}に${damage}のダメージ！`
+  if (isAmbush) message = `奇襲！ ${enemy.name}に${damage}のダメージ！`
+  else if (isPowerStrike) message = `渾身の一撃！ ${enemy.name}に${damage}のダメージ！`
+  else if (isFireball) message = `ファイアボール！ ${enemy.name}に${damage}のダメージ！`
+  else if (isCritical) message = `会心の一撃！ ${enemy.name}に${damage}のダメージ！`
   else if (isFireSlash) message = `火炎斬り！ ${enemy.name}に${damage}のダメージ！`
   if (isPoisonApplied) message += ' 毒を付与した！'
 
@@ -598,10 +648,27 @@ function attackEnemy(state, enemy) {
   let pendingSkillChoice = null
   let levelUpFlash = false
 
+  // 渾身の一撃HP消費
+  if (isPowerStrike) newPlayer.hp = Math.max(1, newPlayer.hp - 5)
+  // ファイアボールMP消費
+  if (mpCost > 0) newPlayer.mp = Math.max(0, (newPlayer.mp || 0) - mpCost)
+
   // HP吸収
   if (isLifesteal && lifestealAmount > 0) {
     newPlayer.hp = Math.min(newPlayer.maxHp, newPlayer.hp + lifestealAmount)
     message += ` HP${lifestealAmount}吸収！`
+  }
+
+  // 盗むスキル: 撃破時30%でアイテムドロップ
+  let floorItems = state.floorItems
+  if (newHp <= 0 && newPlayer.skills.some((s) => s.id === 'steal') && Math.random() < 0.3) {
+    const pool = getItemPoolForFloor(state.floor)
+    if (pool.length > 0) {
+      const itemType = pick(pool)
+      const item = createItemInstance(itemType, enemy.x, enemy.y)
+      floorItems = [...floorItems, item]
+      message += ` アイテムを盗んだ！`
+    }
   }
 
   if (expGain > 0) {
@@ -623,7 +690,7 @@ function attackEnemy(state, enemy) {
 
       // スキル選択判定
       if (SKILL_LEVELS.includes(newPlayer.level)) {
-        const choices = getSkillChoices(newPlayer.skills.map((s) => s.id))
+        const choices = getSkillChoices(newPlayer.skills.map((s) => s.id), newPlayer.classId)
         if (choices.length > 0) {
           pendingSkillChoice = choices
         }
@@ -632,7 +699,7 @@ function attackEnemy(state, enemy) {
   }
 
   const aliveEnemies = newEnemies.filter((e) => e.hp > 0)
-  const result = processEnemyTurn(aliveEnemies, newPlayer, state.tiles)
+  const result = processEnemyTurn(aliveEnemies, newPlayer, state.tiles, state.rooms)
   const fov = computeFOV(state.tiles, result.player, state.rooms, state.revealed)
 
   const finalMsg = result.message || message
@@ -643,6 +710,7 @@ function attackEnemy(state, enemy) {
     ...state,
     player: result.player,
     enemies: result.enemies,
+    floorItems,
     visible: fov.visible,
     revealed: fov.revealed,
     message: finalMsg,
@@ -654,7 +722,7 @@ function attackEnemy(state, enemy) {
   }
 }
 
-function processEnemyTurn(enemies, player, tiles) {
+function processEnemyTurn(enemies, player, tiles, rooms) {
   const { defense } = getPlayerStats(player)
   const skills = player.skills || []
   const shield = player.equipment.shield
@@ -706,6 +774,8 @@ function processEnemyTurn(enemies, player, tiles) {
 
     // 盾付与効果でダメージ軽減
     let dmg = event.isExplode ? event.damage : applyShieldEnchant(event.damage, shield)
+    // バフによるダメージ軽減（かばう・魔力の盾）
+    dmg = applyDefensiveBuffs(dmg, player)
 
     totalDamage += dmg
     damagePopups.push({
@@ -731,11 +801,24 @@ function processEnemyTurn(enemies, player, tiles) {
     }
   }
 
-  const newHp = player.hp - totalDamage
+  let newHp = player.hp - totalDamage
+  let newPlayer = { ...player, hp: Math.max(0, newHp) }
+
+  // テレポートスキル: HP15%以下でMP8消費して安全な部屋に逃げる
+  if (newHp > 0 && newHp <= player.maxHp * 0.15
+    && skills.some((s) => s.id === 'teleport') && (newPlayer.mp || 0) >= 8
+    && rooms && rooms.length > 0) {
+    newPlayer.mp -= 8
+    const room = pick(rooms)
+    newPlayer.x = room.x + Math.floor(room.width / 2)
+    newPlayer.y = room.y + Math.floor(room.height / 2)
+    message = `テレポート！ 安全な場所に逃げた！`
+  }
+
   const gameOver = newHp <= 0
 
   return {
-    player: { ...player, hp: Math.max(0, newHp) },
+    player: newPlayer,
     enemies: finalEnemies,
     damagePopups,
     message,
@@ -762,6 +845,13 @@ export function descendStairs(state) {
     const healed = Math.min(15, player.maxHp - player.hp)
     player.hp += healed
     if (healed > 0) message = ` 回復の心得でHP${healed}回復！`
+  }
+
+  // 魔法使いMP回復（フロア移動時に3回復）
+  if (player.maxMp > 0 && player.mp < player.maxMp) {
+    const mpHealed = Math.min(3, player.maxMp - player.mp)
+    player.mp += mpHealed
+    message += ` MPが${mpHealed}回復！`
   }
 
   const nextFloor = state.floor + 1

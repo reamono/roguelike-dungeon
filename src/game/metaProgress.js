@@ -32,7 +32,7 @@ export function saveMeta(meta) {
  * ゲームオーバー時: 所持ゴールドの30〜50%を貯蓄に加算
  */
 export function processRunEnd(meta, runResult) {
-  const { gold, floor, killCount } = runResult
+  const { gold, floor, killCount, classId } = runResult
   const saveRate = 0.3 + Math.random() * 0.2  // 30〜50%
   const savedAmount = Math.floor(gold * saveRate)
 
@@ -42,6 +42,7 @@ export function processRunEnd(meta, runResult) {
     totalRuns: meta.totalRuns + 1,
     bestFloor: Math.max(meta.bestFloor, floor),
     totalKills: meta.totalKills + killCount,
+    lastClassId: classId || meta.lastClassId || null,
     _lastSavedAmount: savedAmount,
     _lastSaveRate: Math.round(saveRate * 100),
   }

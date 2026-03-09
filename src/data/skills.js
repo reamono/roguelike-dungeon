@@ -1,4 +1,7 @@
-export const ALL_SKILLS = [
+import { CLASS_SKILLS } from './classes'
+
+// 共通スキル（全職業で選択可能）
+export const COMMON_SKILLS = [
   {
     id: 'fire_slash',
     name: '火炎斬り',
@@ -49,14 +52,20 @@ export const ALL_SKILLS = [
   },
 ]
 
+// 後方互換: ALL_SKILLSは共通スキルのエイリアス
+export const ALL_SKILLS = COMMON_SKILLS
+
 // スキル選択が発生するレベル
 export const SKILL_LEVELS = [3, 5, 7, 10]
 
 /**
  * まだ習得していないスキルからランダムに3つ選ぶ
+ * 共通スキル＋職業専用スキルの混合プールから選択
  */
-export function getSkillChoices(learnedSkillIds) {
-  const available = ALL_SKILLS.filter((s) => !learnedSkillIds.includes(s.id))
+export function getSkillChoices(learnedSkillIds, classId) {
+  const classSkills = classId ? (CLASS_SKILLS[classId] || []) : []
+  const pool = [...COMMON_SKILLS, ...classSkills]
+  const available = pool.filter((s) => !learnedSkillIds.includes(s.id))
   // シャッフルして3つ取る
   const shuffled = [...available].sort(() => Math.random() - 0.5)
   return shuffled.slice(0, 3)

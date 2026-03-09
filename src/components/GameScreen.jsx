@@ -24,8 +24,8 @@ import BossDialogue from './BossDialogue'
 import { sfxAttack, sfxHit, sfxPickup, sfxLevelUp, sfxGameOver, sfxGold, sfxStairs, sfxMystery, initAudio } from '../utils/sound'
 import { fetchAIEvent, fetchBossDialogue } from '../game/aiClient'
 
-export default function GameScreen({ bonuses, onGameOver }) {
-  const [state, setState] = useState(() => createInitialState(bonuses))
+export default function GameScreen({ bonuses, classId, onGameOver }) {
+  const [state, setState] = useState(() => createInitialState(bonuses, classId))
   const [showInventory, setShowInventory] = useState(false)
   const [showLog, setShowLog] = useState(false)
   const handleMove = useCallback((dx, dy) => {
@@ -58,6 +58,7 @@ export default function GameScreen({ bonuses, onGameOver }) {
       floor: state.floor,
       killCount: state.player.killCount || 0,
       level: state.player.level,
+      classId: state.player.classId,
     })
   }, [onGameOver, state])
 

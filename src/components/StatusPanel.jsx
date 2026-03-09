@@ -22,6 +22,18 @@ export default function StatusPanel({ floor, player, message, onShowLog }) {
           <span className="hp-text">{player.hp}/{player.maxHp}</span>
         </div>
 
+        {player.maxMp > 0 && (
+          <div className="status-mp">
+            <div className="mp-bar-bg">
+              <div
+                className="mp-bar-fill"
+                style={{ width: `${(player.mp / player.maxMp) * 100}%` }}
+              />
+            </div>
+            <span className="mp-text">{player.mp}/{player.maxMp}</span>
+          </div>
+        )}
+
         <div className="status-stats">
           <span className="stat">Lv{player.level}</span>
           <span className="stat">ATK{attack}</span>
