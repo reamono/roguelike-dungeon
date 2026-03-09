@@ -231,6 +231,11 @@ function buildFloorState(floor, player, prevLog) {
     // 鍛冶屋NPC
     blacksmith,
     showBlacksmith: false,
+    // AI関連
+    aiEvent: null,
+    aiEventPending: !boss && floor > 1 && Math.random() < 0.20,
+    bossDialogue: null,
+    bossDialogueTrigger: boss ? 'taunt' : null,
   }
 }
 
@@ -260,7 +265,7 @@ function isOnBossTile(boss, x, y) {
 }
 
 export function movePlayer(state, dx, dy) {
-  if (state.gameOver || state.pendingSkillChoice) return state
+  if (state.gameOver || state.pendingSkillChoice || state.aiEvent || state.aiEventPending) return state
 
   const nx = state.player.x + dx
   const ny = state.player.y + dy
@@ -427,8 +432,15 @@ function attackBoss(state) {
   let stairsLocked = state.stairsLocked
   let floorItems = state.floorItems
 
+  // ボスセリフトリガー: HP50%以下になった瞬間
+  let bossDialogueTrigger = null
+  if (boss.hp > boss.maxHp * 0.5 && newBossHp <= boss.maxHp * 0.5 && newBossHp > 0) {
+    bossDialogueTrigger = 'angry'
+  }
+
   // ボス撃破
   if (newBossHp <= 0) {
+    bossDialogueTrigger = 'death'
     const bossGold = boss.gold || 0
     message = `${boss.name}を倒した！ (${boss.exp} EXP${bossGold > 0 ? ` +${bossGold}G` : ''})`
     stairsLocked = false
@@ -478,6 +490,7 @@ function attackBoss(state) {
       stairsLocked: false,
       pendingSkillChoice,
       levelUpFlash,
+      bossDialogueTrigger,
     }
   }
 
@@ -535,6 +548,7 @@ function attackBoss(state) {
     pendingSkillChoice,
     levelUpFlash,
     stairsLocked,
+    bossDialogueTrigger,
   }
 }
 
@@ -931,4 +945,61 @@ export function forgeItem(state, baseItemId, materialItemId) {
 
 export function restartGame(bonuses) {
   return createInitialState(bonuses)
+}
+
+// --- AI関連の状態管理 ---
+
+export function setAIEvent(state, eventData) {
+  return { ...state, aiEvent: eventData, aiEventPending: false }
+}
+
+export function applyAIEventChoice(state, choiceIndex) {
+  if (!state.aiEvent || !state.aiEvent.choices) return state
+  const choice = state.aiEvent.choices[choiceIndex]
+  if (!choice) return state
+
+  const effect = choice.effect || {}
+  let newPlayer = { ...state.player }
+  let messages = [choice.outcome]
+
+  if (effect.hp) {
+    newPlayer.hp = Math.max(1, Math.min(newPlayer.maxHp, newPlayer.hp + effect.hp))
+    if (effect.hp > 0) messages.push(`HPが${effect.hp}回復した`)
+    else messages.push(`${Math.abs(effect.hp)}のダメージを受けた`)
+  }
+  if (effect.gold) {
+    newPlayer.gold = Math.max(0, (newPlayer.gold || 0) + effect.gold)
+    if (effect.gold > 0) messages.push(`${effect.gold}ゴールドを入手した`)
+    else messages.push(`${Math.abs(effect.gold)}ゴールドを失った`)
+  }
+  if (effect.attack) {
+    newPlayer.baseAttack = (newPlayer.baseAttack || 0) + effect.attack
+    messages.push(`攻撃力が${effect.attack}上がった`)
+  }
+  if (effect.defense) {
+    newPlayer.baseDefense = (newPlayer.baseDefense || 0) + effect.defense
+    messages.push(`防御力が${effect.defense}上がった`)
+  }
+
+  const msg = messages.join(' ')
+  return {
+    ...state,
+    player: newPlayer,
+    aiEvent: null,
+    aiEventPending: false,
+    message: msg,
+    messageLog: appendLog(state.messageLog, msg),
+  }
+}
+
+export function setBossDialogue(state, dialogue) {
+  return { ...state, bossDialogue: dialogue }
+}
+
+export function clearBossDialogue(state) {
+  return { ...state, bossDialogue: null }
+}
+
+export function clearBossDialogueTrigger(state) {
+  return { ...state, bossDialogueTrigger: null }
 }

@@ -65,6 +65,12 @@ export function sfxStairs() {
   setTimeout(() => playTone(659, 0.15, 'triangle', 0.1), 200)
 }
 
+export function sfxMystery() {
+  playTone(440, 0.15, 'sine', 0.08)
+  setTimeout(() => playTone(554, 0.15, 'sine', 0.08), 150)
+  setTimeout(() => playTone(659, 0.2, 'sine', 0.1), 300)
+}
+
 // ユーザー操作でAudioContextを起動
 export function initAudio() {
   const ctx = getCtx()

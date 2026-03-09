@@ -3,6 +3,8 @@ import {
   createInitialState, movePlayer, descendStairs,
   useItemFromInventory, dropItemFromInventory, sortInventory,
   selectSkill, dismissBossWarning, dismissBlacksmith, forgeItem,
+  setAIEvent, applyAIEventChoice,
+  setBossDialogue, clearBossDialogue, clearBossDialogueTrigger,
 } from '../game/GameState'
 import { useInput } from '../hooks/useInput'
 import Canvas from './Canvas'
@@ -17,7 +19,10 @@ import BossWarning from './BossWarning'
 import BossHPBar from './BossHPBar'
 import Minimap from './Minimap'
 import BlacksmithModal from './BlacksmithModal'
-import { sfxAttack, sfxHit, sfxPickup, sfxLevelUp, sfxGameOver, sfxGold, sfxStairs, initAudio } from '../utils/sound'
+import AIEventModal from './AIEventModal'
+import BossDialogue from './BossDialogue'
+import { sfxAttack, sfxHit, sfxPickup, sfxLevelUp, sfxGameOver, sfxGold, sfxStairs, sfxMystery, initAudio } from '../utils/sound'
+import { fetchAIEvent, fetchBossDialogue } from '../game/aiClient'
 
 export default function GameScreen({ bonuses, onGameOver }) {
   const [state, setState] = useState(() => createInitialState(bonuses))
@@ -68,6 +73,38 @@ export default function GameScreen({ bonuses, onGameOver }) {
     setState((prev) => forgeItem(prev, baseId, materialId))
   }, [])
 
+  const handleAIEventChoice = useCallback((choiceIndex) => {
+    setState((prev) => applyAIEventChoice(prev, choiceIndex))
+  }, [])
+
+  // AIイベント取得
+  useEffect(() => {
+    if (!state.aiEventPending) return
+    let cancelled = false
+    fetchAIEvent(state.floor, state.player).then((data) => {
+      if (!cancelled) setState((prev) => setAIEvent(prev, data))
+    })
+    return () => { cancelled = true }
+  }, [state.aiEventPending, state.floor])
+
+  // ボスセリフ取得
+  useEffect(() => {
+    if (!state.bossDialogueTrigger) return
+    const trigger = state.bossDialogueTrigger
+    const boss = state.boss
+    let cancelled = false
+    setState((prev) => clearBossDialogueTrigger(prev))
+    fetchBossDialogue(boss?.id, boss?.name || state.bossWarning, trigger, state.floor).then((dialogue) => {
+      if (!cancelled) {
+        setState((prev) => setBossDialogue(prev, dialogue))
+        setTimeout(() => {
+          if (!cancelled) setState((prev) => clearBossDialogue(prev))
+        }, 3000)
+      }
+    })
+    return () => { cancelled = true }
+  }, [state.bossDialogueTrigger])
+
   const handleTickPopups = useCallback(() => {
     setState((prev) => {
       const popups = prev.damagePopups
@@ -109,6 +146,9 @@ export default function GameScreen({ bonuses, onGameOver }) {
 
     // アイテム拾得
     if (state.player.inventory.length > prev.player.inventory.length) sfxPickup()
+
+    // AIイベント出現
+    if (state.aiEvent && !prev.aiEvent) sfxMystery()
   }, [state])
 
   const touchHandlers = useInput(handleMove, handleAction)
@@ -188,6 +228,16 @@ export default function GameScreen({ bonuses, onGameOver }) {
           onClose={handleDismissBlacksmith}
         />
       )}
+
+      {(state.aiEventPending || state.aiEvent) && (
+        <AIEventModal
+          event={state.aiEvent}
+          onChoice={handleAIEventChoice}
+          loading={state.aiEventPending}
+        />
+      )}
+
+      {state.bossDialogue && <BossDialogue text={state.bossDialogue} />}
 
       {showLog && (
         <LogPanel log={state.messageLog} onClose={() => setShowLog(false)} />
