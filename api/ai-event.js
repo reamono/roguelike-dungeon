@@ -3,17 +3,16 @@
 // Body: { floor, hp, maxHp, items: string[] }
 // Response: { type, title, description, choices: [{ text, outcome, effect }] }
 
-const GEMINI_URL =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent'
+const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const apiKey = process.env.GEMINI_API_KEY
+  const apiKey = process.env.GROQ_API_KEY
   if (!apiKey) {
-    console.error('GEMINI_API_KEY is not set')
+    console.error('GROQ_API_KEY is not set')
     return res.status(500).json({ error: true, message: 'API key not configured' })
   }
 
@@ -26,8 +25,10 @@ export default async function handler(req, res) {
 
     console.log('ai-event called:', { floor, hp, maxHp, itemCount: items.length })
 
-    const prompt = `あなたはローグライクダンジョンゲームのイベント生成AIです。
-プレイヤーの現在の状況:
+    const systemPrompt = `あなたはローグライクダンジョンゲームのイベント生成AIです。
+指示に従い、必ず指定されたJSON形式のみを出力してください。説明文やマークダウンは不要です。`
+
+    const userPrompt = `プレイヤーの現在の状況:
 - ダンジョン${floor}階
 - HP: ${hp}/${maxHp}
 - 所持アイテム: ${items.length > 0 ? items.join('、') : 'なし'}
@@ -55,32 +56,36 @@ export default async function handler(req, res) {
   ]
 }`
 
-    const geminiRes = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
+    const groqRes = await fetch(GROQ_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          responseMimeType: 'application/json',
-          temperature: 0.9,
-          maxOutputTokens: 4096,
-        },
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.9,
+        max_tokens: 4096,
+        response_format: { type: 'json_object' },
       }),
     })
 
-    if (!geminiRes.ok) {
-      const errText = await geminiRes.text()
-      console.error('Gemini API error:', geminiRes.status, errText)
+    if (!groqRes.ok) {
+      const errText = await groqRes.text()
+      console.error('Groq API error:', groqRes.status, errText)
       return res.status(500).json({ error: true })
     }
 
-    const data = await geminiRes.json()
-    const candidate = data?.candidates?.[0]
-    const text = candidate?.content?.parts?.[0]?.text
-    const finishReason = candidate?.finishReason
-    console.log('Gemini response:', { finishReason, textLength: text?.length || 0 })
+    const data = await groqRes.json()
+    const text = data?.choices?.[0]?.message?.content
+    const finishReason = data?.choices?.[0]?.finish_reason
+    console.log('Groq response:', { finishReason, textLength: text?.length || 0 })
     if (!text) {
-      console.error('Gemini returned no text:', JSON.stringify(data).slice(0, 500))
+      console.error('Groq returned no text:', JSON.stringify(data).slice(0, 500))
       return res.status(500).json({ error: true })
     }
 
@@ -107,7 +112,7 @@ export default async function handler(req, res) {
     }
 
     if (!eventData) {
-      console.error('Failed to parse Gemini response:', text.slice(0, 1000))
+      console.error('Failed to parse Groq response:', text.slice(0, 1000))
       return res.status(500).json({ error: true })
     }
 

@@ -3,8 +3,7 @@
 // Body: { bossName, bossId, triggerType: "taunt"|"angry"|"death", floor }
 // Response: { dialogue: string }
 
-const GEMINI_URL =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent'
+const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
 
 const BOSS_PERSONALITIES = {
   goblin_king: '粗暴で傲慢な蛮族の王。部下を従える力を誇示し、人間を見下す。口調は荒々しく威圧的。',
@@ -23,7 +22,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const apiKey = process.env.GEMINI_API_KEY
+  const apiKey = process.env.GROQ_API_KEY
   if (!apiKey) {
     return res.status(500).json({ dialogue: null })
   }
@@ -33,10 +32,11 @@ export default async function handler(req, res) {
     const personality = BOSS_PERSONALITIES[bossId] || BOSS_PERSONALITIES.goblin_king
     const instruction = TRIGGER_INSTRUCTIONS[triggerType] || TRIGGER_INSTRUCTIONS.taunt
 
-    const prompt = `あなたはローグライクダンジョンゲームのボスキャラクター「${bossName}」です。
-ダンジョン${floor}階のボスとして登場しています。
-
+    const systemPrompt = `あなたはローグライクダンジョンゲームのボスキャラクター「${bossName}」です。
 キャラクター設定: ${personality}
+指示に従い、必ず指定されたJSON形式のみを出力してください。`
+
+    const userPrompt = `ダンジョン${floor}階のボスとして登場しています。
 
 ${instruction}
 
@@ -48,26 +48,31 @@ ${instruction}
 以下のJSON形式で出力してください:
 { "dialogue": "セリフ文" }`
 
-    const response = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
+    const response = await fetch(GROQ_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          responseMimeType: 'application/json',
-          temperature: 1.0,
-          maxOutputTokens: 256,
-        },
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 1.0,
+        max_tokens: 256,
+        response_format: { type: 'json_object' },
       }),
     })
 
     if (!response.ok) {
-      console.error('Gemini API error:', response.status)
+      console.error('Groq API error:', response.status)
       return res.status(200).json({ dialogue: null })
     }
 
     const data = await response.json()
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text
+    const text = data?.choices?.[0]?.message?.content
     if (!text) {
       return res.status(200).json({ dialogue: null })
     }
