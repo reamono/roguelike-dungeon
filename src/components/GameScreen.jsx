@@ -88,21 +88,20 @@ export default function GameScreen({ bonuses, onGameOver }) {
   }, [state.aiEventPending, state.floor])
 
   // ボスセリフ取得
+  const bossDialogueRef = useRef(false)
   useEffect(() => {
-    if (!state.bossDialogueTrigger) return
+    if (!state.bossDialogueTrigger || bossDialogueRef.current) return
     const trigger = state.bossDialogueTrigger
     const boss = state.boss
-    let cancelled = false
+    bossDialogueRef.current = true
     setState((prev) => clearBossDialogueTrigger(prev))
     fetchBossDialogue(boss?.id, boss?.name || state.bossWarning, trigger, state.floor).then((dialogue) => {
-      if (!cancelled) {
-        setState((prev) => setBossDialogue(prev, dialogue))
-        setTimeout(() => {
-          if (!cancelled) setState((prev) => clearBossDialogue(prev))
-        }, 3000)
-      }
+      bossDialogueRef.current = false
+      setState((prev) => setBossDialogue(prev, dialogue))
+      setTimeout(() => {
+        setState((prev) => clearBossDialogue(prev))
+      }, 3000)
     })
-    return () => { cancelled = true }
   }, [state.bossDialogueTrigger])
 
   const handleTickPopups = useCallback(() => {

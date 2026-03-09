@@ -266,7 +266,7 @@ function isOnBossTile(boss, x, y) {
 }
 
 export function movePlayer(state, dx, dy) {
-  if (state.gameOver || state.pendingSkillChoice || state.aiEvent || state.aiEventPending) return state
+  if (state.gameOver || state.pendingSkillChoice || state.aiEvent || state.aiEventPending || state.bossWarning) return state
 
   const nx = state.player.x + dx
   const ny = state.player.y + dy
