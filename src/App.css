@@ -151,6 +151,7 @@
 .bottom-bar {
   display: flex;
   align-items: center;
+  justify-content: center;
   background: #0a0a18;
   border-top: 2px solid #1a1a3e;
   flex-shrink: 0;
@@ -209,8 +210,10 @@
 /* Virtual Joystick */
 .joystick-base {
   position: relative;
-  width: 120px;
-  height: 120px;
+  width: 40vw;
+  max-width: 160px;
+  min-width: 100px;
+  aspect-ratio: 1 / 1;
   border-radius: 50%;
   background: radial-gradient(circle, #1a1a3e 40%, #12122a 100%);
   border: 2px solid #2a2a5a;
@@ -218,18 +221,14 @@
   flex-shrink: 0;
   touch-action: none;
   -webkit-tap-highlight-color: transparent;
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .joystick-stick {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 44px;
-  height: 44px;
+  width: 36%;
+  aspect-ratio: 1 / 1;
   border-radius: 50%;
   background: radial-gradient(circle, #3a3a7a 0%, #2a2a5a 100%);
   border: 2px solid #44aaff;
@@ -247,19 +246,25 @@
 
 .jg {
   position: absolute;
-  font-size: 0.6rem;
-  color: rgba(255, 255, 255, 0.15);
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.18);
   line-height: 1;
+  transition: color 0.1s, text-shadow 0.1s;
 }
 
-.jg-u  { top: 4px;    left: 50%;  transform: translateX(-50%); }
-.jg-d  { bottom: 4px; left: 50%;  transform: translateX(-50%); }
-.jg-l  { left: 6px;   top: 50%;   transform: translateY(-50%); }
-.jg-r  { right: 6px;  top: 50%;   transform: translateY(-50%); }
-.jg-ul { top: 12px;   left: 12px; }
-.jg-ur { top: 12px;   right: 12px; }
-.jg-dl { bottom: 12px; left: 12px; }
-.jg-dr { bottom: 12px; right: 12px; }
+.jg-active {
+  color: #44aaff;
+  text-shadow: 0 0 6px rgba(68, 170, 255, 0.6);
+}
+
+.jg-u  { top: 6%;     left: 50%;  transform: translateX(-50%); }
+.jg-d  { bottom: 6%;  left: 50%;  transform: translateX(-50%); }
+.jg-l  { left: 6%;    top: 50%;   transform: translateY(-50%); }
+.jg-r  { right: 6%;   top: 50%;   transform: translateY(-50%); }
+.jg-ul { top: 12%;    left: 12%; }
+.jg-ur { top: 12%;    right: 12%; }
+.jg-dl { bottom: 12%; left: 12%; }
+.jg-dr { bottom: 12%; right: 12%; }
 
 /* Control Toggle Button */
 .ctrl-toggle-btn {
