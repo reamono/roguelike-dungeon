@@ -13,17 +13,24 @@ export default async function handler(req, res) {
 
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) {
+    console.error('GEMINI_API_KEY is not set')
     return res.status(500).json({ error: true, message: 'API key not configured' })
   }
 
   try {
-    const { floor, hp, maxHp, items } = req.body
+    const body = req.body || {}
+    const floor = body.floor || 1
+    const hp = body.hp || 30
+    const maxHp = body.maxHp || 30
+    const items = Array.isArray(body.items) ? body.items : []
+
+    console.log('ai-event called:', { floor, hp, maxHp, itemCount: items.length })
 
     const prompt = `あなたはローグライクダンジョンゲームのイベント生成AIです。
 プレイヤーの現在の状況:
 - ダンジョン${floor}階
 - HP: ${hp}/${maxHp}
-- 所持アイテム: ${items && items.length > 0 ? items.join('、') : 'なし'}
+- 所持アイテム: ${items.length > 0 ? items.join('、') : 'なし'}
 
 以下の条件でランダムイベントを1つ生成してください:
 - イベントの種類は「石碑」「宝箱」「旅の商人」「泉」「祭壇」のいずれか
@@ -48,7 +55,7 @@ export default async function handler(req, res) {
   ]
 }`
 
-    const response = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
+    const geminiRes = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -61,15 +68,16 @@ export default async function handler(req, res) {
       }),
     })
 
-    if (!response.ok) {
-      const errText = await response.text()
-      console.error('Gemini API error:', response.status, errText)
+    if (!geminiRes.ok) {
+      const errText = await geminiRes.text()
+      console.error('Gemini API error:', geminiRes.status, errText)
       return res.status(500).json({ error: true })
     }
 
-    const data = await response.json()
+    const data = await geminiRes.json()
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text
     if (!text) {
+      console.error('Gemini returned no text:', JSON.stringify(data).slice(0, 500))
       return res.status(500).json({ error: true })
     }
 
@@ -82,18 +90,20 @@ export default async function handler(req, res) {
       if (match) {
         eventData = JSON.parse(match[0])
       } else {
+        console.error('Failed to parse Gemini response:', text.slice(0, 500))
         return res.status(500).json({ error: true })
       }
     }
 
     // バリデーション
     if (!eventData.title || !eventData.choices || !Array.isArray(eventData.choices)) {
+      console.error('Invalid event data:', JSON.stringify(eventData).slice(0, 500))
       return res.status(500).json({ error: true })
     }
 
     return res.status(200).json(eventData)
   } catch (err) {
-    console.error('ai-event error:', err)
+    console.error('ai-event error:', err.message, err.stack)
     return res.status(500).json({ error: true })
   }
 }
