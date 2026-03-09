@@ -112,7 +112,7 @@ export function renderGame(ctx, canvas, state) {
   // プレイヤー描画
   const px = player.x * TILE_SIZE + offsetX
   const py = player.y * TILE_SIZE + offsetY
-  drawPlayer(ctx, px, py)
+  drawPlayer(ctx, px, py, player.classId)
 
   // ダメージポップアップ描画
   if (damagePopups) {
