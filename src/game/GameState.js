@@ -282,18 +282,94 @@ function isOnBossTile(boss, x, y) {
   return x >= boss.x && x <= boss.x + 1 && y >= boss.y && y <= boss.y + 1
 }
 
+/**
+ * 足踏み: プレイヤーは移動しないが1ターン経過する（敵ターン処理あり）
+ */
+function stayInPlace(state) {
+  const newPlayer = { ...state.player, turnCount: (state.player.turnCount || 0) + 1 }
+
+  // バフターン減少
+  if (newPlayer.guardTurns > 0) newPlayer.guardTurns--
+  if (newPlayer.warCryTurns > 0) newPlayer.warCryTurns--
+  if (newPlayer.magicShieldTurns > 0) newPlayer.magicShieldTurns--
+
+  // 自然回復: 5ターンごとにHP1回復
+  if (newPlayer.turnCount % 5 === 0 && newPlayer.hp < newPlayer.maxHp && newPlayer.hp > 0) {
+    newPlayer.hp = Math.min(newPlayer.hp + 1, newPlayer.maxHp)
+  }
+
+  // ボスのターン
+  let bossResult = null
+  let newBoss = state.boss
+  let addedEnemies = []
+  if (state.boss && state.boss.hp > 0) {
+    const { defense } = getPlayerStats(newPlayer)
+    bossResult = processBossTurn(state.boss, newPlayer, defense, state.tiles, state.enemies)
+    newBoss = bossResult.boss
+    addedEnemies = bossResult.summonEnemies || []
+  }
+
+  // 通常敵のターン
+  const allEnemies = [...state.enemies, ...addedEnemies]
+  const result = processEnemyTurn(allEnemies, newPlayer, state.tiles, state.rooms)
+  const fov = computeFOV(state.tiles, result.player, state.rooms, state.revealed)
+
+  // ボスダメージ処理
+  let bossPopups = []
+  let bossMsg = null
+  let totalBossDmg = 0
+  if (bossResult && bossResult.damageEvents.length > 0) {
+    const skills = result.player.skills || []
+    for (const event of bossResult.damageEvents) {
+      if (checkEvasion(skills)) {
+        bossPopups.push({ id: Date.now() + Math.random(), x: event.x, y: event.y, text: 'MISS', color: '#88aaff', timer: 30 })
+        bossMsg = `${event.enemyName}の攻撃を見切った！`
+        continue
+      }
+      totalBossDmg += event.damage
+      bossPopups.push({ id: Date.now() + Math.random(), x: event.x, y: event.y, text: `${event.damage}`, color: '#ff4444', timer: 30 })
+      bossMsg = bossResult.message
+    }
+  } else if (bossResult) {
+    bossMsg = bossResult.message
+  }
+
+  const playerAfterBoss = { ...result.player, hp: Math.max(0, result.player.hp - totalBossDmg) }
+  const gameOver = result.gameOver || playerAfterBoss.hp <= 0
+
+  let log = state.messageLog
+  if (bossMsg) log = appendLog(log, bossMsg)
+  if (result.message) log = appendLog(log, result.message)
+
+  return {
+    ...state,
+    player: playerAfterBoss,
+    enemies: result.enemies,
+    boss: newBoss,
+    visible: fov.visible,
+    revealed: fov.revealed,
+    message: bossMsg || result.message || state.message,
+    messageLog: log,
+    damagePopups: [...bossPopups, ...result.damagePopups],
+    gameOver,
+    levelUpFlash: false,
+  }
+}
+
 export function movePlayer(state, dx, dy) {
   if (state.gameOver || state.pendingSkillChoice || state.aiEvent || state.aiEventPending || state.bossWarning) return state
 
   const nx = state.player.x + dx
   const ny = state.player.y + dy
 
-  if (nx < 0 || nx >= MAP_WIDTH || ny < 0 || ny >= MAP_HEIGHT) return state
-  if (state.tiles[ny][nx] === TILE.WALL) return state
+  // 壁・範囲外・斜め角すり抜け → 足踏み（その場で1ターン経過、敵は動く）
+  const blocked =
+    nx < 0 || nx >= MAP_WIDTH || ny < 0 || ny >= MAP_HEIGHT ||
+    state.tiles[ny]?.[nx] === TILE.WALL ||
+    (dx !== 0 && dy !== 0 && state.tiles[state.player.y][nx] === TILE.WALL && state.tiles[ny][state.player.x] === TILE.WALL)
 
-  // 斜め移動時: 壁の角をすり抜けないようチェック
-  if (dx !== 0 && dy !== 0) {
-    if (state.tiles[state.player.y][nx] === TILE.WALL && state.tiles[ny][state.player.x] === TILE.WALL) return state
+  if (blocked) {
+    return stayInPlace(state)
   }
 
   // ボスがいる場合、ボスタイルに移動しようとしたら攻撃

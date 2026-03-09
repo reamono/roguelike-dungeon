@@ -1,16 +1,52 @@
-import { useRef, useCallback } from 'react'
+import { useRef, useCallback, useEffect } from 'react'
 
 const DEAD_ZONE = 12     // ピクセル — これ以下はアクション（階段降りる等）
 const STICK_RADIUS = 50  // ジョイスティック外周半径
+const REPEAT_FIRST = 200 // 最初の移動後、連続移動開始までの遅延(ms)
+const REPEAT_INTERVAL = 150 // 連続移動の間隔(ms)
 
 /**
- * 8方向バーチャルジョイスティック
- * 親指でドラッグ → 離すと移動確定（ターン制なのでフリック式）
+ * 8方向バーチャルジョイスティック（連続移動対応）
+ * 倒し続けている間、一定間隔で移動を繰り返す
  */
 export default function VirtualJoystick({ onMove, onAction }) {
   const baseRef = useRef(null)
   const stickRef = useRef(null)
   const originRef = useRef(null)
+  const currentDirRef = useRef(null)  // 現在倒している方向 { dx, dy }
+  const repeatTimerRef = useRef(null) // 連続移動タイマー
+
+  // クリーンアップ
+  useEffect(() => {
+    return () => {
+      if (repeatTimerRef.current) clearTimeout(repeatTimerRef.current)
+    }
+  }, [])
+
+  const stopRepeat = useCallback(() => {
+    currentDirRef.current = null
+    if (repeatTimerRef.current) {
+      clearTimeout(repeatTimerRef.current)
+      repeatTimerRef.current = null
+    }
+  }, [])
+
+  const startRepeat = useCallback((dir) => {
+    stopRepeat()
+    currentDirRef.current = dir
+    // 最初の移動は即座に
+    onMove(dir.dx, dir.dy)
+
+    // 連続移動ループ
+    const scheduleNext = (delay) => {
+      repeatTimerRef.current = setTimeout(() => {
+        if (!currentDirRef.current) return
+        onMove(currentDirRef.current.dx, currentDirRef.current.dy)
+        scheduleNext(REPEAT_INTERVAL)
+      }, delay)
+    }
+    scheduleNext(REPEAT_FIRST)
+  }, [onMove, stopRepeat])
 
   const resetStick = useCallback(() => {
     if (stickRef.current) {
@@ -41,27 +77,44 @@ export default function VirtualJoystick({ onMove, onAction }) {
     if (stickRef.current) {
       stickRef.current.style.transform = `translate(calc(-50% + ${sx}px), calc(-50% + ${sy}px))`
     }
-  }, [])
+
+    // デッドゾーン外なら方向を更新して連続移動
+    if (dist >= DEAD_ZONE) {
+      const angleDeg = Math.atan2(dy, dx) * (180 / Math.PI)
+      const dir = snapTo8Dir(angleDeg)
+      // 方向が変わった場合のみリスタート
+      if (!currentDirRef.current || currentDirRef.current.dx !== dir.dx || currentDirRef.current.dy !== dir.dy) {
+        startRepeat(dir)
+      }
+    } else {
+      // デッドゾーン内に戻ったら停止
+      stopRepeat()
+    }
+  }, [startRepeat, stopRepeat])
 
   const handlePointerUp = useCallback((e) => {
     if (!originRef.current) return
     e.preventDefault()
     const dx = e.clientX - originRef.current.x
     const dy = e.clientY - originRef.current.y
+    const hadDirection = currentDirRef.current !== null
+
     originRef.current = null
+    stopRepeat()
     resetStick()
 
+    // デッドゾーン内でのタップ＆連続移動していなかった場合のみアクション
     const dist = Math.sqrt(dx * dx + dy * dy)
-    if (dist < DEAD_ZONE) {
+    if (dist < DEAD_ZONE && !hadDirection) {
       onAction()
-      return
     }
+  }, [onAction, stopRepeat, resetStick])
 
-    // 8方向判定: 角度を45°刻みで分類
-    const angle = Math.atan2(dy, dx) * (180 / Math.PI) // -180 ~ 180
-    const dir = snapTo8Dir(angle)
-    onMove(dir.dx, dir.dy)
-  }, [onMove, onAction, resetStick])
+  const handlePointerCancel = useCallback(() => {
+    originRef.current = null
+    stopRepeat()
+    resetStick()
+  }, [stopRepeat, resetStick])
 
   return (
     <div
@@ -70,7 +123,7 @@ export default function VirtualJoystick({ onMove, onAction }) {
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
-      onPointerCancel={() => { originRef.current = null; resetStick() }}
+      onPointerCancel={handlePointerCancel}
     >
       <div ref={stickRef} className="joystick-stick" />
       {/* 方向ガイド表示 */}
@@ -93,7 +146,6 @@ export default function VirtualJoystick({ onMove, onAction }) {
  *   0° = 右, 90° = 下, -90° = 上, ±180° = 左
  */
 function snapTo8Dir(angleDeg) {
-  // 各方向の角度と対応 dx,dy
   const dirs = [
     { min: -22.5,  max: 22.5,   dx: 1,  dy: 0  }, // →
     { min: 22.5,   max: 67.5,   dx: 1,  dy: 1  }, // ↘
