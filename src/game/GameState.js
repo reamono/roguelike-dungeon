@@ -233,9 +233,10 @@ function buildFloorState(floor, player, prevLog) {
     showBlacksmith: false,
     // AI関連
     aiEvent: null,
-    aiEventPending: !boss && floor > 1 && Math.random() < 0.20,
+    aiEventPending: false,
+    lastAIEventFloor: 0,
     bossDialogue: null,
-    bossDialogueTrigger: boss ? 'taunt' : null,
+    bossDialogueTrigger: null,
   }
 }
 
@@ -743,7 +744,7 @@ function processEnemyTurn(enemies, player, tiles) {
 }
 
 export function dismissBossWarning(state) {
-  return { ...state, bossWarning: null }
+  return { ...state, bossWarning: null, bossDialogueTrigger: state.boss ? 'taunt' : null }
 }
 
 export function descendStairs(state) {
@@ -769,6 +770,17 @@ export function descendStairs(state) {
     newState.message += message
     newState.messageLog = appendLog(newState.messageLog, message.trim())
   }
+
+  // AIイベント判定: ボス階でなく、前回イベントから4フロア以上空いていれば20%で発生
+  const lastEvt = state.lastAIEventFloor || 0
+  const isBoss = isBossFloor(nextFloor)
+  if (!isBoss && nextFloor > 1 && (nextFloor - lastEvt) >= 4 && Math.random() < 0.20) {
+    newState.aiEventPending = true
+    newState.lastAIEventFloor = nextFloor
+  } else {
+    newState.lastAIEventFloor = lastEvt
+  }
+
   return newState
 }
 

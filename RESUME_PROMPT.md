@@ -16,96 +16,96 @@
 - **Phase 2**: 敵AI、戦闘、アイテム（ポーション/武器/盾）、インベントリ、ゲームオーバー
 - **Phase 3**: 経験値・レベルアップ、スキル選択（Lv3,5,7,10）、6種スキル
 - **Phase 4**: ボス戦（5F毎）、3種ボス（ゴブリンキング/ドラゴン/死霊の王）、2x2表示、特殊攻撃、WARNING演出、ボスHPバー、階段ロック、レアドロップ、16F以降スケーリング循環
-- **追加UI**: スキルツールチップ（インベントリ内タップ）、メッセージログ（直近50件、LOGボタン）
+- **Phase 5**: メタ進行 — ゴールドシステム、死亡時30-50%貯蓄、拠点画面で恒久強化ショップ、localStorage永続化
+- **Phase 6**: UI改善 — インベントリ（ドロップ/ソート）、カードUI統一、ミニマップ（タップ拡大）、ダメージポップアップ強化＆画面シェイク、Web Audio API効果音、タイトル画面、初回チュートリアル
 
-## 次に着手すべき作業: フェーズ5（メタ進行）
+### バランス調整（Phase 6後に実施、全て完了済み）
 
-以下を実装してください。既存コード（Phase 1〜4）を壊さないよう注意。
+**① 装備システム拡張**
+- 武器/盾に12%確率でランダム付与効果（毒付与/HP吸収/会心率UP/反撃/ダメージ軽減/守護回復）
+- 10F以降10%で鍛冶屋NPC出現、同種装備2つで+1強化（最大+5、+2ステータス/段階）
+- 袋画面で装備タップ→付与効果の詳細確認可能
+- `BlacksmithModal.jsx` 新規作成
 
-1. **ゴールドシステム**
-   - 敵を倒すとゴールドドロップ（強い敵・ボスほど多い）
-   - ダンジョン床にもゴールドがランダムで落ちている
-   - 所持ゴールドをステータスパネルに常時表示
+**② ゴールド調整**
+- 雑魚敵のゴールドドロップ約半減、床ゴールド出現数・金額削減
+- 拠点強化コスト乗数引き上げ（1.5→1.7, 1.8→2.0, 1.6→1.8）
+- ボスゴールドは据え置き
 
-2. **死亡時の引き継ぎ**
-   - ゲームオーバー時に所持ゴールドの30〜50%を「貯蓄ゴールド」として引き継ぎ
-   - 到達フロア・倒した敵数などのリザルト画面表示
+**③ 雑魚敵の強化**
+- 全敵HP/ATK/DEFを1.3〜1.4倍に引き上げ
+- スケーリングに指数項追加（`1 + depth*0.12 + depth^1.4*0.02`）
+- 特殊行動: コウモリ(2回攻撃)、オーク(20%で仲間召喚)、デーモン(HP25%以下で自爆)
 
-3. **拠点画面（冒険前に表示）**
-   - 貯蓄ゴールドで恒久強化を購入：最大HP+10(100G)、基礎攻撃力+3(150G)、基礎防御力+3(150G)、初期アイテム枠+1(200G)、回復薬1個持ちスタート(80G)
-   - 購入ごとに同じ強化の次回コスト上昇（インフレ対策）
-   - カードUI風に表示、購入済み回数もわかるように
-   - 「冒険に出る」ボタンでダンジョンへ
-
-4. **localStorage 永続化**
-   - 貯蓄ゴールドと購入済み強化を保存、ブラウザを閉じても残る
+**④ 回復薬の調整**
+- 出現weight半減、薬草12HP固定、回復薬→最大HP30%、上級→50%
+- 5ターンごとにHP1自然回復
 
 ## 主要ファイル構成
 
 ```
 src/
 ├── game/
-│   ├── GameState.js      ← 中核。createInitialState, movePlayer, attackEnemy, attackBoss, descendStairs 等
+│   ├── GameState.js      ← 中核。状態管理（移動/攻撃/階段/インベントリ/鍛冶屋/毒/自然回復）
 │   ├── dungeon.js        ← generateFloor, generateBossFloor
-│   ├── combat.js         ← calcDamage, calcPlayerDamage, getPlayerStats, checkEvasion
-│   ├── enemyAI.js        ← processEnemyTurns
+│   ├── combat.js         ← calcDamage, calcPlayerDamage(付与効果対応), getPlayerStats(強化値対応), applyShieldEnchant, getThornsDamage, checkEvasion
+│   ├── enemyAI.js        ← processEnemyTurns（特殊行動: 2回攻撃/召喚/自爆）
 │   ├── bossAI.js         ← processBossTurn
 │   ├── fov.js            ← computeFOV
+│   ├── metaProgress.js   ← localStorage保存/読込、貯蓄ゴールド管理
 ├── data/
-│   ├── enemies.js        ← 6種の敵定義、scaleEnemy ← ゴールド値を追加する
-│   ├── items.js          ← アイテムテンプレ、createItemInstance
-│   ├── bosses.js         ← 3種ボス定義、getBossForFloor ← ボスゴールドを追加する
+│   ├── enemies.js        ← 6種敵（special属性付き）、急カーブスケーリング
+│   ├── items.js          ← アイテムテンプレ、ENCHANTMENTS定義、rollEnchantment、buildItem
+│   ├── bosses.js         ← 3種ボス定義
 │   ├── skills.js         ← 6種スキル
+│   ├── upgrades.js       ← 5種恒久強化（コスト乗数1.7〜2.0）
 ├── components/
-│   ├── GameScreen.jsx    ← メイン画面、state管理、全UIオーケストレーション
-│   ├── StatusPanel.jsx   ← フロア/HP/ATK/DEF/LOGボタン表示 ← ゴールド表示追加
-│   ├── GameOverScreen.jsx← ゲームオーバー画面 ← リザルト表示に拡張
-│   ├── Inventory.jsx     ← インベントリ（スキルツールチップ付き）
-│   ├── BossWarning.jsx   ← ボス演出
-│   ├── BossHPBar.jsx     ← ボスHP表示
-│   ├── LogPanel.jsx      ← メッセージログ
+│   ├── GameScreen.jsx    ← メイン画面、全UIオーケストレーション（鍛冶屋モーダル含む）
+│   ├── StatusPanel.jsx   ← フロア/HP/ATK/DEF/Gold/LOGボタン
+│   ├── GameOverScreen.jsx← リザルト画面（貯蓄表示付き）
+│   ├── Inventory.jsx     ← インベントリ（付与効果表示、強化値表示、ドロップ/ソート）
+│   ├── BlacksmithModal.jsx← 鍛冶屋UI（ベース選択→素材選択→強化）
+│   ├── BaseScreen.jsx    ← 拠点画面（強化ショップ）
+│   ├── TitleOverlay.jsx  ← タイトル画面（初回訪問時）
+│   ├── Tutorial.jsx      ← 操作チュートリアル（初回のみ）
+│   ├── Minimap.jsx       ← Canvas右上ミニマップ（タップ拡大）
+│   ├── BossWarning.jsx, BossHPBar.jsx, LogPanel.jsx
 │   ├── Canvas.jsx, DPad.jsx, SkillSelectModal.jsx, LevelUpFlash.jsx
 ├── rendering/
-│   ├── renderer.js       ← renderGame（タイル/敵/ボス/プレイヤー/ポップアップ描画）
-│   ├── sprites.js        ← drawPlayer, drawEnemy, drawBoss, drawItem 等
-│   ├── camera.js         ← getCameraOffset
+│   ├── renderer.js       ← renderGame（鍛冶屋NPC描画含む）
+│   ├── sprites.js        ← 全ドット絵描画（drawBlacksmith追加済み）
+│   ├── camera.js
 ├── hooks/
-│   ├── useGameLoop.js    ← RAF ループ
+│   ├── useGameLoop.js    ← RAFループ（画面シェイク付き）
 │   ├── useInput.js       ← スワイプ/キーボード入力
 ├── utils/
-│   ├── constants.js      ← TILE_SIZE=32, MAP 40x30, TILE enum
+│   ├── constants.js      ← TILE_SIZE=32, MAP 80x50, TILE enum
 │   ├── random.js         ← randInt, pick, shuffle
-├── App.jsx               ← 現在は GameScreen を直接表示 ← 拠点/ゲーム画面の切替を追加
-├── App.css               ← 全スタイル（~780行）
+│   ├── sound.js          ← Web Audio API効果音（sfxAttack等）
+├── App.jsx               ← 画面遷移（title/base/game）、メタ進行管理
+├── App.css               ← 全スタイル（~1500行）
 ```
 
-## 新規作成が必要なファイル
+## 現在の状態
 
-- `src/data/upgrades.js` — 強化定義（名前、コスト、効果、コスト上昇率）
-- `src/game/metaProgress.js` — localStorage 保存/読込、貯蓄ゴールド管理
-- `src/components/BaseScreen.jsx` — 拠点画面（強化ショップ + 冒険出発）
+- 全フェーズ(1〜6) + バランス調整が完了済み
+- 最新コミット: `e342fca` (master, pushed)
+- ビルド成功確認済み
+
+## 次に着手すべき作業候補
+
+以下は未実装のアイデア（ユーザーの指示待ち）:
+
+1. **フェーズ7（未定義）** — ユーザーから具体的な指示があれば実装
+2. **追加バランス調整** — プレイテスト後のフィードバックに基づく微調整
+3. **新コンテンツ** — 新しい敵種、アイテム種、スキル、ダンジョンギミック等
 
 ## 変更時の注意点
 
-- `GameState.js` の `createPlayer()` に強化ボーナスを反映させる（引数で受け取る）
-- `createInitialState()` も強化ボーナスを受け取れるように変更
-- ゴールドは `state.player.gold` として管理
-- 敵撃破時のゴールド加算は `attackEnemy` と `attackBoss` 内で行う
-- 床ゴールドはアイテムと同様に `floorItems` に `type: 'gold'` で混ぜるか、別配列で管理
-- `App.jsx` で画面遷移（拠点 ↔ ゲーム）を管理する
+- `GameState.js` が最も大きく複雑（~824行）。イミュータブル状態パターン（関数が新stateを返す）
+- `combat.js` の `calcPlayerDamage` は第4引数 `weapon` で付与効果を処理する
+- `enemyAI.js` の `processEnemyTurns` は `special` 属性で特殊行動を分岐
+- 装備の `enhance` (0〜5) と `enchant` (付与効果オブジェクト) は別概念
+- 回復薬は `stats.heal`（固定値）と `stats.healPercent`（最大HP割合）の2方式がある
 - 既存ファイルは必ず先に Read してから最小限の変更で進めること
-- git push や destructive な git コマンドは実行前に確認すること
 - ビルド確認: `npm run build` でエラーがないことを確認してからコミット
-
-## 実装の流れ（推奨順）
-
-1. `enemies.js` / `bosses.js` にゴールド値を追加
-2. `metaProgress.js` 作成（localStorage 読書き）
-3. `upgrades.js` 作成（強化定義）
-4. `GameState.js` を修正（ゴールド管理、createPlayer に強化反映、敵撃破時ゴールド加算、床ゴールド生成）
-5. `StatusPanel.jsx` にゴールド表示追加
-6. `GameOverScreen.jsx` をリザルト画面に拡張（ゴールド引き継ぎ処理）
-7. `BaseScreen.jsx` 作成（強化ショップUI）
-8. `App.jsx` で画面遷移管理（拠点 → ゲーム → ゲームオーバー → 拠点）
-9. `App.css` にスタイル追加
-10. ビルド確認 → コミット → push
