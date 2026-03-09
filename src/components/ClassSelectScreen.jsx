@@ -1,77 +1,24 @@
 import { CLASSES } from '../data/classes'
 
-// 各職業のドット絵風アイコン（Canvas描画用の簡易ピクセルアート）
-function ClassPixelIcon({ classId, size = 64 }) {
-  const pixels = CLASS_PIXELS[classId] || []
-  const gridSize = 8
-  const pixelSize = size / gridSize
+// スプライト画像パス（public/sprites/player/ の実画像を使用）
+const CLASS_SPRITE_PATHS = {
+  warrior: '/sprites/player/warrior.png',
+  mage: '/sprites/player/mage.png',
+  thief: '/sprites/player/thief.png',
+}
 
+function ClassSpriteIcon({ classId, size = 64 }) {
+  const src = CLASS_SPRITE_PATHS[classId]
+  if (!src) return null
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      {pixels.map((row, y) =>
-        row.split('').map((cell, x) => {
-          const color = PIXEL_COLORS[cell]
-          if (!color) return null
-          return (
-            <rect
-              key={`${x}-${y}`}
-              x={x * pixelSize}
-              y={y * pixelSize}
-              width={pixelSize}
-              height={pixelSize}
-              fill={color}
-            />
-          )
-        })
-      )}
-    </svg>
+    <img
+      src={src}
+      alt={classId}
+      width={size}
+      height={size}
+      style={{ imageRendering: 'pixelated' }}
+    />
   )
-}
-
-const PIXEL_COLORS = {
-  R: '#cc4444', r: '#ff6666', // 赤系
-  B: '#4444cc', b: '#6688ff', // 青系
-  G: '#44aa44', g: '#66cc66', // 緑系
-  Y: '#ccaa44', y: '#ffdd66', // 黄系
-  W: '#cccccc', w: '#ffffff', // 白系
-  S: '#886644', s: '#aa8866', // 肌色
-  K: '#333333', k: '#555555', // 黒・暗
-  P: '#8844cc', p: '#aa66ff', // 紫系
-  O: '#cc8844', o: '#ffaa66', // オレンジ
-}
-
-// 8x8ドット絵定義
-const CLASS_PIXELS = {
-  warrior: [
-    '..Yk....',
-    '..SS....',
-    '.RRRR..',
-    '.RRRR..',
-    '..RR.Y..',
-    '..RR....',
-    '.K..K...',
-    '.K..K...',
-  ],
-  mage: [
-    '..Pp....',
-    '..SS....',
-    '.bBBb..',
-    '.BBBB..',
-    '..BB.p..',
-    '..BB....',
-    '.K..K...',
-    '.K..K...',
-  ],
-  thief: [
-    '..KK....',
-    '..SS....',
-    '.gGGg..',
-    '.GGGG..',
-    '..GG....',
-    '..GG.k..',
-    '.K..K...',
-    '.K..K...',
-  ],
 }
 
 export default function ClassSelectScreen({ onSelect }) {
@@ -93,7 +40,7 @@ export default function ClassSelectScreen({ onSelect }) {
             onClick={() => onSelect(cls.id)}
           >
             <div className="class-card-icon">
-              <ClassPixelIcon classId={cls.id} size={56} />
+              <ClassSpriteIcon classId={cls.id} size={56} />
             </div>
             <div className="class-card-name" style={{ color: cls.color }}>
               {cls.icon} {cls.name}

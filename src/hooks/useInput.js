@@ -33,6 +33,27 @@ export function useInput(onMove, onAction) {
           e.preventDefault()
           onMove(1, 0)
           break
+        // 斜め移動（テンキー / qezc）
+        case 'q':
+        case '7':
+          e.preventDefault()
+          onMove(-1, -1)
+          break
+        case 'e':
+        case '9':
+          e.preventDefault()
+          onMove(1, -1)
+          break
+        case 'z':
+        case '1':
+          e.preventDefault()
+          onMove(-1, 1)
+          break
+        case 'c':
+        case '3':
+          e.preventDefault()
+          onMove(1, 1)
+          break
         case ' ':
         case 'Enter':
           e.preventDefault()

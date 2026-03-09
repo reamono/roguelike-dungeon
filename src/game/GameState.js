@@ -291,6 +291,11 @@ export function movePlayer(state, dx, dy) {
   if (nx < 0 || nx >= MAP_WIDTH || ny < 0 || ny >= MAP_HEIGHT) return state
   if (state.tiles[ny][nx] === TILE.WALL) return state
 
+  // 斜め移動時: 壁の角をすり抜けないようチェック
+  if (dx !== 0 && dy !== 0) {
+    if (state.tiles[state.player.y][nx] === TILE.WALL && state.tiles[ny][state.player.x] === TILE.WALL) return state
+  }
+
   // ボスがいる場合、ボスタイルに移動しようとしたら攻撃
   if (state.boss && state.boss.hp > 0 && isOnBossTile(state.boss, nx, ny)) {
     return attackBoss(state)

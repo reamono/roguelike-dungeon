@@ -206,6 +206,66 @@
   background: #2a3a6a;
 }
 
+/* Virtual Joystick */
+.joystick-base {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #1a1a3e 40%, #12122a 100%);
+  border: 2px solid #2a2a5a;
+  margin: 8px auto 16px;
+  flex-shrink: 0;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.joystick-stick {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #3a3a7a 0%, #2a2a5a 100%);
+  border: 2px solid #44aaff;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  transition: transform 0.05s ease-out;
+  box-shadow: 0 0 8px rgba(68, 170, 255, 0.3);
+}
+
+.joystick-guide {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.jg {
+  position: absolute;
+  font-size: 0.6rem;
+  color: rgba(255, 255, 255, 0.15);
+  line-height: 1;
+}
+
+.jg-u  { top: 4px;    left: 50%;  transform: translateX(-50%); }
+.jg-d  { bottom: 4px; left: 50%;  transform: translateX(-50%); }
+.jg-l  { left: 6px;   top: 50%;   transform: translateY(-50%); }
+.jg-r  { right: 6px;  top: 50%;   transform: translateY(-50%); }
+.jg-ul { top: 12px;   left: 12px; }
+.jg-ur { top: 12px;   right: 12px; }
+.jg-dl { bottom: 12px; left: 12px; }
+.jg-dr { bottom: 12px; right: 12px; }
+
+/* Control Toggle Button */
+.ctrl-toggle-btn {
+  font-size: 1.1rem !important;
+}
+
 /* Side Buttons */
 .side-buttons {
   display: flex;

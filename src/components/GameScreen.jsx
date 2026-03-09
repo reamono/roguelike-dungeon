@@ -9,6 +9,7 @@ import {
 import { useInput } from '../hooks/useInput'
 import Canvas from './Canvas'
 import DPad from './DPad'
+import VirtualJoystick from './VirtualJoystick'
 import StatusPanel from './StatusPanel'
 import Inventory from './Inventory'
 import GameOverScreen from './GameOverScreen'
@@ -28,6 +29,17 @@ export default function GameScreen({ bonuses, classId, onGameOver }) {
   const [state, setState] = useState(() => createInitialState(bonuses, classId))
   const [showInventory, setShowInventory] = useState(false)
   const [showLog, setShowLog] = useState(false)
+  const [controlMode, setControlMode] = useState(() => {
+    try { return localStorage.getItem('roguelike_controlMode') || 'dpad' } catch { return 'dpad' }
+  })
+
+  const toggleControlMode = useCallback(() => {
+    setControlMode((prev) => {
+      const next = prev === 'dpad' ? 'joystick' : 'dpad'
+      try { localStorage.setItem('roguelike_controlMode', next) } catch {}
+      return next
+    })
+  }, [])
   const handleMove = useCallback((dx, dy) => {
     setState((prev) => movePlayer(prev, dx, dy))
   }, [])
@@ -180,8 +192,18 @@ export default function GameScreen({ bonuses, classId, onGameOver }) {
       </div>
 
       <div className="bottom-bar">
-        <DPad onMove={handleMove} onAction={handleAction} />
+        {controlMode === 'joystick'
+          ? <VirtualJoystick onMove={handleMove} onAction={handleAction} />
+          : <DPad onMove={handleMove} onAction={handleAction} />
+        }
         <div className="side-buttons">
+          <button
+            className="side-btn ctrl-toggle-btn"
+            onClick={toggleControlMode}
+            title={controlMode === 'dpad' ? 'ジョイスティックに切替' : 'D-Padに切替'}
+          >
+            {controlMode === 'dpad' ? '🕹️' : '✛'}
+          </button>
           <button
             className="side-btn inv-btn"
             onClick={() => setShowInventory(true)}
