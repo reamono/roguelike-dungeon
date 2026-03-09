@@ -72,19 +72,18 @@ ${instruction}
       return res.status(200).json({ dialogue: null })
     }
 
-    let parsed
-    try {
-      parsed = JSON.parse(text)
-    } catch {
-      const match = text.match(/\{[\s\S]*\}/)
-      if (match) {
-        parsed = JSON.parse(match[0])
-      } else {
-        return res.status(200).json({ dialogue: null })
-      }
+    let parsed = null
+    try { parsed = JSON.parse(text) } catch {}
+    if (!parsed) {
+      const codeBlock = text.match(/```(?:json)?\s*([\s\S]*?)```/)
+      if (codeBlock) { try { parsed = JSON.parse(codeBlock[1]) } catch {} }
+    }
+    if (!parsed) {
+      const jsonMatch = text.match(/\{[\s\S]*\}/)
+      if (jsonMatch) { try { parsed = JSON.parse(jsonMatch[0]) } catch {} }
     }
 
-    return res.status(200).json({ dialogue: parsed.dialogue || null })
+    return res.status(200).json({ dialogue: parsed?.dialogue || null })
   } catch (err) {
     console.error('ai-boss error:', err)
     return res.status(200).json({ dialogue: null })

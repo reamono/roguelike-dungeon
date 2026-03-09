@@ -81,18 +81,31 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: true })
     }
 
-    // JSONパース（直接 or 正規表現抽出）
-    let eventData
-    try {
-      eventData = JSON.parse(text)
-    } catch {
-      const match = text.match(/\{[\s\S]*\}/)
-      if (match) {
-        eventData = JSON.parse(match[0])
-      } else {
-        console.error('Failed to parse Gemini response:', text.slice(0, 500))
-        return res.status(500).json({ error: true })
+    // JSONパース（複数の方法を試行）
+    let eventData = null
+
+    // 1. 直接パース
+    try { eventData = JSON.parse(text) } catch {}
+
+    // 2. マークダウンコードブロックから抽出
+    if (!eventData) {
+      const codeBlock = text.match(/```(?:json)?\s*([\s\S]*?)```/)
+      if (codeBlock) {
+        try { eventData = JSON.parse(codeBlock[1]) } catch {}
       }
+    }
+
+    // 3. 最外の{...}を正規表現で抽出
+    if (!eventData) {
+      const jsonMatch = text.match(/\{[\s\S]*\}/)
+      if (jsonMatch) {
+        try { eventData = JSON.parse(jsonMatch[0]) } catch {}
+      }
+    }
+
+    if (!eventData) {
+      console.error('Failed to parse Gemini response:', text.slice(0, 1000))
+      return res.status(500).json({ error: true })
     }
 
     // バリデーション
