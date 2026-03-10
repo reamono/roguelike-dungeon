@@ -21,6 +21,21 @@ const SPRITE_PATHS = {
   boss_goblin_king: '/sprites/bosses/goblin_king.png',
   boss_dragon: '/sprites/bosses/dragon.png',
   boss_lich_king: '/sprites/bosses/lich_king.png',
+  // アイテム
+  item_potion_green: '/sprites/items/potion_green.png',
+  item_potion_red: '/sprites/items/potion_red.png',
+  item_potion_gold: '/sprites/items/potion_gold.png',
+  item_weapon_stick: '/sprites/items/weapon_stick.png',
+  item_weapon_copper: '/sprites/items/weapon_copper.png',
+  item_weapon_iron: '/sprites/items/weapon_iron.png',
+  item_weapon_steel: '/sprites/items/weapon_steel.png',
+  item_shield_wood: '/sprites/items/shield_wood.png',
+  item_shield_iron: '/sprites/items/shield_iron.png',
+  item_shield_steel: '/sprites/items/shield_steel.png',
+  item_gold: '/sprites/items/gold.png',
+  // オブジェクト
+  obj_stairs: '/sprites/objects/stairs.png',
+  obj_blacksmith: '/sprites/objects/blacksmith.png',
 }
 
 // 起動時にすべての画像をプリロード
@@ -173,9 +188,20 @@ function drawBossFallback(ctx, screenX, screenY, boss) {
   ctx.fillRect(x + s * 0.61, y + s * 0.18, s * 0.06, s * 0.06)
 }
 
-// ========== アイテム描画（コード描画のまま） ==========
+// ========== アイテム描画 ==========
 
 export function drawItem(ctx, screenX, screenY, item) {
+  const spriteKey = `item_${item.sprite}`
+  const img = getSprite(spriteKey)
+  if (img) {
+    ctx.drawImage(img, screenX, screenY, TILE_SIZE, TILE_SIZE)
+    return
+  }
+  // フォールバック: コード描画
+  drawItemFallback(ctx, screenX, screenY, item)
+}
+
+function drawItemFallback(ctx, screenX, screenY, item) {
   const s = TILE_SIZE
   const x = screenX
   const y = screenY
@@ -207,9 +233,15 @@ export function drawItem(ctx, screenX, screenY, item) {
   }
 }
 
-// ========== ゴールド描画（コード描画のまま） ==========
+// ========== ゴールド描画 ==========
 
 export function drawGold(ctx, screenX, screenY) {
+  const img = getSprite('item_gold')
+  if (img) {
+    ctx.drawImage(img, screenX, screenY, TILE_SIZE, TILE_SIZE)
+    return
+  }
+  // フォールバック: コード描画
   const s = TILE_SIZE
   const x = screenX
   const y = screenY
@@ -255,6 +287,12 @@ export function drawDamagePopup(ctx, screenX, screenY, popup) {
 // ========== 階段 ==========
 
 export function drawStairs(ctx, screenX, screenY) {
+  const img = getSprite('obj_stairs')
+  if (img) {
+    ctx.drawImage(img, screenX, screenY, TILE_SIZE, TILE_SIZE)
+    return
+  }
+  // フォールバック: コード描画
   const s = TILE_SIZE
   ctx.fillStyle = '#44aa66'
   ctx.fillRect(screenX + s * 0.1, screenY + s * 0.7, s * 0.8, s * 0.15)
@@ -310,6 +348,18 @@ export function drawCorridor(ctx, screenX, screenY) {
 // ========== 鍛冶屋NPC ==========
 
 export function drawBlacksmith(ctx, screenX, screenY) {
+  const img = getSprite('obj_blacksmith')
+  if (img) {
+    ctx.drawImage(img, screenX, screenY, TILE_SIZE, TILE_SIZE)
+    // 「!」マークは画像の上にも表示
+    const s = TILE_SIZE
+    ctx.fillStyle = '#ffcc44'
+    ctx.font = `bold ${Math.floor(s * 0.35)}px monospace`
+    ctx.textAlign = 'center'
+    ctx.fillText('!', screenX + s * 0.5, screenY + s * 0.06)
+    return
+  }
+  // フォールバック: コード描画
   const s = TILE_SIZE
   const x = screenX
   const y = screenY
