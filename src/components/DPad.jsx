@@ -14,7 +14,9 @@ export default function DPad({ onMove, onAction }) {
   return (
     <div className="dpad">
       <div className="dpad-row">
+        {btn('↖', -1, -1, 'dpad-diag')}
         {btn('▲', 0, -1, 'dpad-up')}
+        {btn('↗', 1, -1, 'dpad-diag')}
       </div>
       <div className="dpad-row">
         {btn('◀', -1, 0, 'dpad-left')}
@@ -30,7 +32,9 @@ export default function DPad({ onMove, onAction }) {
         {btn('▶', 1, 0, 'dpad-right')}
       </div>
       <div className="dpad-row">
+        {btn('↙', -1, 1, 'dpad-diag')}
         {btn('▼', 0, 1, 'dpad-down')}
+        {btn('↘', 1, 1, 'dpad-diag')}
       </div>
     </div>
   )

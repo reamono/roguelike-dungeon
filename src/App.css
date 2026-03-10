@@ -196,6 +196,13 @@
   color: #aaaaee;
 }
 
+.dpad-diag {
+  width: 40px;
+  height: 40px;
+  font-size: 0.95rem;
+  border-radius: 10px;
+}
+
 .dpad-center {
   background: #1a1a44;
   border-color: #44aaff;
