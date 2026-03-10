@@ -18,7 +18,7 @@
 - **Phase 4**: ボス戦（5F毎）、3種ボス（ゴブリンキング/ドラゴン/死霊の王）、2x2表示、特殊攻撃、WARNING演出、ボスHPバー、階段ロック、レアドロップ、16F以降スケーリング循環
 - **Phase 5**: メタ進行 — ゴールドシステム、死亡時30-50%貯蓄、拠点画面で恒久強化ショップ、localStorage永続化
 - **Phase 6**: UI改善 — インベントリ（ドロップ/ソート）、カードUI統一、ミニマップ（タップ拡大）、ダメージポップアップ強化＆画面シェイク、Web Audio API効果音、タイトル画面、初回チュートリアル
-- **Phase 7**: AI連携（Groq API） — Vercel Serverless Functions経由でGroq API（llama-3.3-70b-versatile）を呼び出し。ランダムイベント生成（2F以降20%確率）＆ボスセリフ生成（taunt/angry/death）。API失敗時は静的フォールバック。レート制限（1分5リクエスト）。環境変数: `GROQ_API_KEY`
+- **Phase 7**: AI連携（Groq API） — Vercel Serverless Functions経由でGroq API（llama-3.3-70b-versatile）を呼び出し。ランダムイベント生成（2F以降20%確率）＆ボスセリフ生成（taunt/angry/death）。API失敗時は静的フォールバック。レート制限（1分5リクエスト）。環境変数: `GROQ_API_KEY`。ボスセリフプロンプト改善済み（Few-shot参考例、自然な日本語指示、temperature 0.8）
 - **Phase 8**: 職業システム — 冒険開始時に3職業（戦士/魔法使い/盗賊）選択。職業固有ステータス＋9種パッシブスキル（各職3種）。魔法使いはMP制。レベルアップ時に共通+職業専用スキルから選択
 
 ### バランス調整（Phase 6後に実施、全て完了済み）
@@ -43,18 +43,32 @@
 - 出現weight半減、薬草12HP固定、回復薬→最大HP30%、上級→50%
 - 5ターンごとにHP1自然回復
 
-### Phase 9（部分実装済み）: カスタムスプライト
+### Phase 9（完了）: カスタムスプライト
 
-- プレイヤー・敵・ボスのPNG画像を `public/sprites/` に配置
-- `sprites.js` で画像プリロード＋Canvas drawImage描画、読込失敗時はコード描画にフォールバック
-- アイテム画像は未実装（コード描画のまま）
+- プレイヤー・敵・ボス・アイテム・ゴールド・階段・鍛冶屋NPCのPNG画像を `public/sprites/` に配置
+- `sprites.js` で全画像をプリロード＋Canvas drawImage描画、読込失敗時はコード描画にフォールバック
+- 職業選択画面もスプライト画像（`/sprites/player/`）を使用
+
+### 操作システム改善（Phase 9後に実施、完了済み）
+
+**① 8方向移動対応**
+- バーチャルジョイスティック（`VirtualJoystick.jsx`）: 正円、8方向、連続移動（150ms初回遅延→200msリピート）、デッドゾーン50%、方向ハイライト
+- D-Pad / ジョイスティック切替ボタン（設定はlocalStorage保存）
+- キーボード斜め移動: q/e/z/c またはテンキー 7/9/1/3
+
+**② 壁への移動で足踏み**
+- 壁・範囲外への移動でもターン経過（敵が動く）。シレンと同じ仕様
+- `stayInPlace()` 関数で実装（バフ減少・自然回復・敵ターン・ボスターン全処理）
+
+**③ 斜め移動の壁角すり抜け防止**
+- 斜め移動時、両隣が壁なら移動不可
 
 ## 主要ファイル構成
 
 ```
 src/
 ├── game/
-│   ├── GameState.js      ← 中核。状態管理（移動/攻撃/階段/インベントリ/鍛冶屋/毒/自然回復/AIイベント/ボスセリフ/職業バフ）
+│   ├── GameState.js      ← 中核。状態管理（移動/攻撃/階段/インベントリ/鍛冶屋/毒/自然回復/AIイベント/ボスセリフ/職業バフ/足踏み）
 │   ├── dungeon.js        ← generateFloor, generateBossFloor
 │   ├── combat.js         ← calcDamage, calcPlayerDamage(5引数:attack,def,skills,weapon,player), getPlayerStats(強化値+バフ対応), applyShieldEnchant, getThornsDamage, checkEvasion, applyDefensiveBuffs
 │   ├── enemyAI.js        ← processEnemyTurns（特殊行動: 2回攻撃/召喚/自爆）
@@ -64,15 +78,16 @@ src/
 │   ├── aiClient.js       ← fetchAIEvent, fetchBossDialogue（Groq API呼び出し、レート制限、フォールバック付き）
 ├── data/
 │   ├── enemies.js        ← 6種敵（special属性付き）、急カーブスケーリング
-│   ├── items.js          ← アイテムテンプレ、ENCHANTMENTS定義、rollEnchantment、buildItem
+│   ├── items.js          ← アイテムテンプレ（sprite属性付き）、ENCHANTMENTS定義、rollEnchantment、buildItem
 │   ├── bosses.js         ← 3種ボス定義
 │   ├── skills.js         ← 6種共通スキル + CLASS_SKILLSインポート、getSkillChoices(learnedIds, classId)
 │   ├── classes.js        ← 3職業定義（CLASSES）、9種職業スキル（CLASS_SKILLS）、getClassById
 │   ├── upgrades.js       ← 5種恒久強化（コスト乗数1.7〜2.0）
 │   ├── fallbacks.js      ← AIイベント・ボスセリフのフォールバックデータ
 ├── components/
-│   ├── GameScreen.jsx    ← メイン画面、全UIオーケストレーション（AIイベント/ボスセリフのuseEffect含む）
-│   ├── ClassSelectScreen.jsx ← 職業選択カードUI（SVGアイコン、ステータス表示）
+│   ├── GameScreen.jsx    ← メイン画面、全UIオーケストレーション（AIイベント/ボスセリフのuseEffect、操作モード切替含む）
+│   ├── ClassSelectScreen.jsx ← 職業選択カードUI（スプライト画像表示）
+│   ├── VirtualJoystick.jsx ← 8方向バーチャルジョイスティック（正円、連続移動、方向ハイライト）
 │   ├── AIEventModal.jsx  ← AIイベント表示モーダル（ローディング/選択肢/結果表示）
 │   ├── BossDialogue.jsx  ← ボスセリフ吹き出し（フェードイン/アウト）
 │   ├── StatusPanel.jsx   ← フロア/HP/MP/ATK/DEF/Gold/LOGボタン
@@ -87,24 +102,26 @@ src/
 │   ├── Canvas.jsx, DPad.jsx, SkillSelectModal.jsx, LevelUpFlash.jsx
 ├── rendering/
 │   ├── renderer.js       ← renderGame（鍛冶屋NPC描画含む、drawPlayerにclassId渡し）
-│   ├── sprites.js        ← 画像プリロード＋drawImage描画（player/enemy/boss）、アイテム等はコード描画
+│   ├── sprites.js        ← 全画像プリロード＋drawImage描画（player/enemy/boss/item/gold/stairs/blacksmith）、フォールバック付き
 │   ├── camera.js
 ├── hooks/
 │   ├── useGameLoop.js    ← RAFループ（画面シェイク付き）
-│   ├── useInput.js       ← スワイプ/キーボード入力
+│   ├── useInput.js       ← スワイプ/キーボード入力（8方向対応: q/e/z/c, テンキー7/9/1/3）
 ├── utils/
-│   ├── constants.js      ← TILE_SIZE=32, MAP 80x50, TILE enum
+│   ├── constants.js      ← TILE_SIZE=32, MAP 40x30, TILE enum
 │   ├── random.js         ← randInt, pick, shuffle
 │   ├── sound.js          ← Web Audio API効果音（sfxAttack等、sfxMystery追加）
 ├── App.jsx               ← 画面遷移（title/base/classSelect/game）、メタ進行管理
-├── App.css               ← 全スタイル（~1630行）
+├── App.css               ← 全スタイル（~1700行、ジョイスティックCSS含む）
 api/
 ├── ai-event.js           ← Vercel Serverless: ランダムイベント生成（Groq API）
-├── ai-boss.js            ← Vercel Serverless: ボスセリフ生成（Groq API）
+├── ai-boss.js            ← Vercel Serverless: ボスセリフ生成（Groq API、Few-shot参考例付きプロンプト）
 public/sprites/
 ├── player/               ← warrior.png, mage.png, thief.png (32x32)
 ├── enemies/              ← slime.png, bat.png, goblin.png, skeleton.png, orc.png, demon.png (32x32)
 ├── bosses/               ← goblin_king.png, dragon.png, lich_king.png (64x64)
+├── items/                ← potion_green/red/gold.png, weapon_stick/copper/iron/steel.png, shield_wood/iron/steel.png, gold.png (32x32)
+├── objects/              ← stairs.png, blacksmith.png (32x32)
 docs/
 ├── DESIGN.md             ← 全フェーズ仕様書
 ```
@@ -123,8 +140,8 @@ docs/
 
 ## 現在の状態
 
-- 全フェーズ(1〜8) + バランス調整 + スプライト画像置換が完了済み
-- 最新コミット: `72b608d` (master, pushed)
+- 全フェーズ(1〜9) + バランス調整 + 操作システム改善が完了済み
+- 最新コミット: `652157a` (master, pushed)
 - ビルド成功確認済み
 - Vercel環境変数: `GROQ_API_KEY` を設定済み
 
@@ -132,13 +149,14 @@ docs/
 
 以下は未実装のアイデア（ユーザーの指示待ち）:
 
-1. **Phase 9 残り** — アイテムスプライト画像の追加
+1. **タイルスプライト** — 床・壁・通路のスプライト画像化（`public/sprites/tiles/` に floor.png, wall.png, corridor.png を配置すれば対応可能）
 2. **追加バランス調整** — プレイテスト後のフィードバックに基づく微調整
 3. **新コンテンツ** — 新しい敵種、アイテム種、スキル、ダンジョンギミック等
 
 ## 変更時の注意点
 
-- `GameState.js` が最も大きく複雑（~900行超）。イミュータブル状態パターン（関数が新stateを返す）
+- `GameState.js` が最も大きく複雑（~970行超）。イミュータブル状態パターン（関数が新stateを返す）
+- `stayInPlace()` — 壁への移動時に呼ばれる足踏み関数。敵ターン・ボスターン・バフ減少・自然回復を全て処理
 - `combat.js` の `calcPlayerDamage` は第5引数 `player` でHP/MP消費系スキルを処理する
 - `enemyAI.js` の `processEnemyTurns` は `special` 属性で特殊行動を分岐。第4引数 `rooms` でテレポート先を指定
 - 装備の `enhance` (0〜5) と `enchant` (付与効果オブジェクト) は別概念
@@ -146,5 +164,7 @@ docs/
 - ボスセリフの useEffect は `useRef` ガードパターンで二重fetch防止（cancelled flagだとre-renderで競合する）
 - `movePlayer` のガード条件に `state.bossWarning` と `state.aiEvent` / `state.aiEventPending` を含む
 - Groq API（OpenAI互換形式）: `Authorization: Bearer`, `response_format: { type: 'json_object' }`
+- `sprites.js` のアイテム描画は `item.sprite` フィールド（items.jsに定義済み）をキーに `item_${sprite}` で画像を引く
+- 操作モード（dpad/joystick）は `localStorage` の `roguelike_controlMode` に保存
 - 既存ファイルは必ず先に Read してから最小限の変更で進めること
 - ビルド確認: `npm run build` でエラーがないことを確認してからコミット

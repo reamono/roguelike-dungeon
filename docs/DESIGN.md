@@ -36,7 +36,7 @@
 |------|------|
 | ダンジョン生成 | BSP法による部屋＋通路のランダム生成 |
 | タイル描画 | Canvas でフロア・壁・通路・階段を描画 |
-| プレイヤー移動 | スワイプ / 仮想十字キーで4方向移動（斜め移動はフェーズ6で検討） |
+| プレイヤー移動 | スワイプ / 仮想十字キー / ジョイスティックで8方向移動 |
 | 視界システム | プレイヤー周囲のみ表示（部屋内は全体可視） |
 | 階段 | 階段タイルに乗って次フロアへ進行 |
 | フロア表示 | 現在の階数をUIに表示 |
@@ -117,10 +117,10 @@
 | バックエンド | Vercel Serverless Functions (`api/ai-event.js`, `api/ai-boss.js`) |
 | AIモデル | Llama 3.3 70B Versatile (`llama-3.3-70b-versatile`) via Groq API |
 | APIキー管理 | サーバー側環境変数 `GROQ_API_KEY` |
-| ランダムイベント | 5フロアに1回程度、AIが状況に応じたイベント文と2〜3選択肢を生成 |
+| ランダムイベント | 2F以降20%確率でAIが状況に応じたイベント文と2〜3選択肢を生成 |
 | イベント種類 | 謎の石碑 / 怪しい宝箱 / 旅の商人 / 泉 / 祭壇 など |
 | イベント効果 | HP回復・ダメージ・ゴールド獲得・ステータス変化など、JSONで数値反映 |
-| ボスセリフ | 戦闘開始時の挑発、HP50%以下で怒り、撃破時に断末魔（1〜2文） |
+| ボスセリフ | 戦闘開始時の挑発、HP50%以下で怒り、撃破時に断末魔（1〜2文）。Few-shot参考例＋自然な日本語指示、temperature 0.8 |
 | エラーハンドリング | API失敗時はフォールバックテキスト表示、ゲーム停止なし |
 | レート制限 | クライアント側で1分5リクエスト制限 |
 | ローディング | API呼び出し中は待機アニメーション表示 |
@@ -140,15 +140,41 @@
 | 拠点表示 | 拠点画面に選択中の職業を表示 |
 | 職業アイコン | 各職業のドット絵風アイコンを職業選択画面に表示 |
 
-### フェーズ9: カスタムアセット
+### フェーズ9: カスタムスプライト（完了）
 
-> キャラクター・敵のドット絵をユーザー提供の画像に置き換え
+> 全キャラクター・敵・ボス・アイテム・オブジェクトをPNG画像に置き換え
 
 | 機能 | 詳細 |
 |------|------|
-| スプライト画像 | コード内ピクセル定義を外部画像ファイルに置き換え |
-| 画像読み込み | スプライトシートまたは個別PNG画像をプリロード |
-| 差し替え対応 | renderer.js のスプライト描画をImage対応に拡張 |
+| プレイヤー画像 | `public/sprites/player/` — warrior.png, mage.png, thief.png (32x32) |
+| 敵画像 | `public/sprites/enemies/` — slime, bat, goblin, skeleton, orc, demon (32x32) |
+| ボス画像 | `public/sprites/bosses/` — goblin_king, dragon, lich_king (64x64) |
+| アイテム画像 | `public/sprites/items/` — potion_green/red/gold, weapon_stick/copper/iron/steel, shield_wood/iron/steel, gold (32x32) |
+| オブジェクト画像 | `public/sprites/objects/` — stairs.png, blacksmith.png (32x32) |
+| 画像読み込み | `sprites.js` で全画像をプリロード、Canvas drawImage描画 |
+| フォールバック | 画像読み込み失敗時はコード描画にフォールバック |
+| 職業選択画面 | ClassSelectScreen.jsx でスプライト画像を直接表示 |
+
+### バランス調整（Phase 6後に実施、完了済み）
+
+| 項目 | 詳細 |
+|------|------|
+| 装備付与効果 | 武器/盾に12%確率でランダム付与（毒付与/HP吸収/会心率UP/反撃/ダメージ軽減/守護回復） |
+| 鍛冶屋NPC | 10F以降10%で出現。同種装備2つで+1強化（最大+5） |
+| ゴールド調整 | 雑魚ドロップ約半減、床ゴールド削減、拠点コスト乗数引き上げ |
+| 雑魚敵強化 | HP/ATK/DEF 1.3〜1.4倍、指数項スケーリング、特殊行動（コウモリ2回攻撃/オーク召喚/デーモン自爆） |
+| 回復薬調整 | 出現weight半減、薬草12HP固定、回復薬→最大HP30%、上級→50% |
+| 自然回復 | 5ターンごとにHP1回復 |
+
+### 操作システム改善（Phase 9後に実施、完了済み）
+
+| 機能 | 詳細 |
+|------|------|
+| 8方向移動 | キーボード斜め: q/e/z/c またはテンキー 7/9/1/3 |
+| バーチャルジョイスティック | `VirtualJoystick.jsx` — 正円、8方向、連続移動（150ms初回→200msリピート）、デッドゾーン50%、方向ハイライト |
+| 操作モード切替 | D-Pad / ジョイスティック切替ボタン。設定はlocalStorage保存 |
+| 壁への移動で足踏み | 壁・範囲外への移動でもターン経過（シレン準拠）。`stayInPlace()` 関数 |
+| 斜め移動制限 | 両隣が壁なら斜め移動不可（壁角すり抜け防止） |
 
 ---
 
@@ -313,65 +339,85 @@ type MetaProgress = {
 roguelike-dungeon/
 ├── docs/
 │   └── DESIGN.md              # 本ドキュメント
+├── api/                       # Vercel Serverless Functions
+│   ├── ai-event.js            # ランダムイベント生成（Groq API）
+│   └── ai-boss.js             # ボスセリフ生成（Groq API、Few-shot参考例付き）
 ├── public/
+│   ├── sprites/
+│   │   ├── player/            # warrior.png, mage.png, thief.png (32x32)
+│   │   ├── enemies/           # slime, bat, goblin, skeleton, orc, demon (32x32)
+│   │   ├── bosses/            # goblin_king, dragon, lich_king (64x64)
+│   │   ├── items/             # potion_green/red/gold, weapon_*, shield_*, gold (32x32)
+│   │   └── objects/           # stairs.png, blacksmith.png (32x32)
 │   ├── favicon.svg
 │   ├── pwa-192x192.svg
 │   └── pwa-512x512.svg
 ├── src/
 │   ├── main.jsx               # エントリポイント
-│   ├── App.jsx                # ルートコンポーネント・画面遷移管理
-│   ├── App.css
+│   ├── App.jsx                # ルートコンポーネント・画面遷移管理（title/base/classSelect/game）
+│   ├── App.css                # 全スタイル（~1700行、ジョイスティックCSS含む）
 │   ├── index.css              # グローバルスタイル
 │   │
 │   ├── components/            # UIコンポーネント
-│   │   ├── GameScreen.jsx     # ゲーム画面全体のレイアウト
+│   │   ├── GameScreen.jsx     # ゲーム画面全体（AIイベント/ボスセリフのuseEffect、操作モード切替含む）
 │   │   ├── Canvas.jsx         # ダンジョン描画用 Canvas
-│   │   ├── DPad.jsx           # 仮想十字キー
-│   │   ├── StatusPanel.jsx    # HP / レベル / 階数 などのカードUI
-│   │   ├── Inventory.jsx      # アイテム一覧パネル
-│   │   ├── SkillBar.jsx       # スキルボタン
-│   │   ├── MiniMap.jsx        # ミニマップ (フェーズ6)
-│   │   ├── BossHpBar.jsx      # ボスHP表示 (フェーズ4)
-│   │   ├── TitleScreen.jsx    # タイトル画面
-│   │   ├── BaseScreen.jsx     # 拠点画面 (フェーズ5)
-│   │   ├── GameOverScreen.jsx # ゲームオーバー画面
-│   │   └── LevelUpModal.jsx   # レベルアップ時のスキル選択 (フェーズ3)
+│   │   ├── DPad.jsx           # 仮想十字キー（4方向）
+│   │   ├── VirtualJoystick.jsx # 8方向バーチャルジョイスティック（連続移動、方向ハイライト）
+│   │   ├── ClassSelectScreen.jsx # 職業選択カードUI（スプライト画像表示）
+│   │   ├── StatusPanel.jsx    # フロア/HP/MP/ATK/DEF/Gold/LOGボタン
+│   │   ├── Inventory.jsx      # インベントリ（付与効果表示、強化値表示、ドロップ/ソート）
+│   │   ├── BlacksmithModal.jsx # 鍛冶屋UI（ベース選択→素材選択→強化）
+│   │   ├── AIEventModal.jsx   # AIイベント表示モーダル（ローディング/選択肢/結果表示）
+│   │   ├── BossDialogue.jsx   # ボスセリフ吹き出し（フェードイン/アウト）
+│   │   ├── Minimap.jsx        # Canvas右上ミニマップ（タップ拡大）
+│   │   ├── BossWarning.jsx    # ボス登場WARNING演出
+│   │   ├── BossHPBar.jsx      # ボスHP表示
+│   │   ├── TitleOverlay.jsx   # タイトル画面（初回訪問時）
+│   │   ├── BaseScreen.jsx     # 拠点画面（強化ショップ、前回職業表示）
+│   │   ├── GameOverScreen.jsx # リザルト画面（貯蓄表示付き）
+│   │   ├── Tutorial.jsx       # 操作チュートリアル（初回のみ）
+│   │   ├── SkillSelectModal.jsx # レベルアップ時のスキル選択
+│   │   ├── LevelUpFlash.jsx   # レベルアップ演出
+│   │   └── LogPanel.jsx       # 戦闘ログパネル
 │   │
 │   ├── game/                  # ゲームロジック（UIに依存しない純粋なロジック）
-│   │   ├── GameState.js       # ゲーム状態の管理・ターン進行
-│   │   ├── dungeon.js         # BSP法によるダンジョン生成
+│   │   ├── GameState.js       # 中核。状態管理（移動/攻撃/階段/インベントリ/鍛冶屋/毒/自然回復/AIイベント/ボスセリフ/職業バフ/足踏み）
+│   │   ├── dungeon.js         # generateFloor, generateBossFloor（BSP法）
 │   │   ├── fov.js             # 視界計算
-│   │   ├── pathfinding.js     # 敵AIの経路探索 (A*)
-│   │   ├── combat.js          # ダメージ計算・戦闘処理
-│   │   ├── enemyAI.js         # 敵の行動決定ロジック
-│   │   ├── items.js           # アイテム効果・ドロップ処理
-│   │   ├── skills.js          # スキル定義・効果処理 (フェーズ3)
-│   │   └── boss.js            # ボスの行動パターン (フェーズ4)
+│   │   ├── combat.js          # calcDamage, calcPlayerDamage, getPlayerStats, applyShieldEnchant等
+│   │   ├── enemyAI.js         # processEnemyTurns（特殊行動: 2回攻撃/召喚/自爆）
+│   │   ├── bossAI.js          # processBossTurn
+│   │   ├── metaProgress.js    # localStorage保存/読込、貯蓄ゴールド管理
+│   │   └── aiClient.js        # fetchAIEvent, fetchBossDialogue（Groq API、レート制限、フォールバック付き）
 │   │
 │   ├── data/                  # マスタデータ（定数）
-│   │   ├── enemies.js         # 敵種別定義
-│   │   ├── items.js           # アイテム定義
-│   │   ├── skills.js          # スキル定義 (フェーズ3)
-│   │   └── upgrades.js        # 拠点強化の定義 (フェーズ5)
+│   │   ├── enemies.js         # 6種敵（special属性付き）、急カーブスケーリング
+│   │   ├── items.js           # アイテムテンプレ（sprite属性付き）、ENCHANTMENTS定義、rollEnchantment、buildItem
+│   │   ├── bosses.js          # 3種ボス定義
+│   │   ├── skills.js          # 6種共通スキル + CLASS_SKILLSインポート、getSkillChoices
+│   │   ├── classes.js         # 3職業定義（CLASSES）、9種職業スキル（CLASS_SKILLS）、getClassById
+│   │   ├── upgrades.js        # 5種恒久強化（コスト乗数1.7〜2.0）
+│   │   └── fallbacks.js       # AIイベント・ボスセリフのフォールバックデータ
 │   │
 │   ├── rendering/             # Canvas 描画
-│   │   ├── renderer.js        # メイン描画ループ
-│   │   ├── sprites.js         # スプライト管理・ドット絵定義
-│   │   ├── camera.js          # カメラ（ビューポート）制御
-│   │   └── effects.js         # エフェクト描画 (フェーズ6)
+│   │   ├── renderer.js        # renderGame（鍛冶屋NPC描画含む、drawPlayerにclassId渡し）
+│   │   ├── sprites.js         # 全画像プリロード＋drawImage描画（player/enemy/boss/item/gold/stairs/blacksmith）、フォールバック付き
+│   │   └── camera.js          # カメラ（ビューポート）制御
 │   │
 │   ├── hooks/                 # カスタムフック
-│   │   ├── useGameLoop.js     # ゲームループ管理
-│   │   ├── useInput.js        # タッチ・キーボード入力処理
-│   │   └── useSave.js         # localStorage セーブ/ロード (フェーズ5)
+│   │   ├── useGameLoop.js     # RAFループ（画面シェイク付き）
+│   │   └── useInput.js        # スワイプ/キーボード入力（8方向対応: q/e/z/c, テンキー7/9/1/3）
 │   │
 │   └── utils/                 # ユーティリティ
-│       ├── random.js          # シード付き乱数
-│       └── constants.js       # 定数（タイルサイズ, 画面サイズ等）
+│       ├── constants.js       # TILE_SIZE=32, MAP 40x30, TILE enum
+│       ├── random.js          # randInt, pick, shuffle
+│       └── sound.js           # Web Audio API効果音（sfxAttack等）
 │
 ├── index.html
 ├── vite.config.js
+├── vercel.json
 ├── package.json
+├── RESUME_PROMPT.md           # 次回セッション引継ぎ用プロンプト
 └── .gitignore
 ```
 
@@ -398,8 +444,8 @@ roguelike-dungeon/
 
 | 技術 | 用途 |
 |------|------|
-| **Canvas 2D Context** | ドット絵スプライトの描画（外部ライブラリ不使用） |
-| コード内スプライト定義 | 画像ファイルを使わず、ピクセル配列でドット絵を定義 |
+| **Canvas 2D Context** | スプライト画像の描画（外部ライブラリ不使用） |
+| PNG画像スプライト | `public/sprites/` に配置したPNG画像をプリロード＋drawImage描画。読込失敗時はコード描画にフォールバック |
 
 ### データ永続化
 
@@ -414,11 +460,17 @@ roguelike-dungeon/
 | **Vercel** | ホスティング・自動デプロイ |
 | **GitHub** | ソースコード管理 |
 
+### AI連携
+
+| 技術 | 用途 |
+|------|------|
+| **Groq API** | Llama 3.3 70B Versatile（OpenAI互換形式）によるテキスト生成 |
+| **Vercel Serverless Functions** | APIキーをサーバー側で管理（`api/ai-event.js`, `api/ai-boss.js`） |
+
 ### 使用しないもの（意図的な選択）
 
 - **状態管理ライブラリ (Redux等)**: React の useState / useReducer で十分
 - **ゲームエンジン (Phaser等)**: Canvas API 直接操作でシンプルに保つ
-- **画像アセット**: コード内でドット絵を定義し、外部依存を排除
 - **TypeScript**: 段階的開発のため JSDoc コメントで型情報を補完
 
 ---
@@ -450,7 +502,8 @@ roguelike-dungeon/
 ### モバイル最適化
 
 - スワイプ方向でプレイヤー移動
-- 画面下部に仮想十字キー（DPad）配置
-- ダブルタップで「その場で待機（1ターン消費）」
-- 長押しで足元アイテム確認
+- 仮想十字キー（DPad）またはバーチャルジョイスティック（8方向）を選択可能
+- ジョイスティック: 正円、デッドゾーン50%、連続移動（150ms初回→200msリピート）、方向ガイドハイライト
+- 操作モード切替ボタンで即座に切り替え（設定はlocalStorage保存）
+- 壁への移動で足踏み（ターン経過、シレン準拠）
 - UI要素は親指が届く画面下半分に集中配置
