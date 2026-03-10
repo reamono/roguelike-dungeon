@@ -1,8 +1,8 @@
 import { useRef, useCallback, useEffect, useState } from 'react'
 
-const MOVE_THRESHOLD = 0.55  // 外周の55%以上倒したとき移動発動
+const MOVE_THRESHOLD = 0.50  // 外周の50%以上倒したとき移動発動
 const ACTION_ZONE = 12       // タップ判定(px)
-const INITIAL_DELAY = 200    // 倒してから最初の1歩までの遅延(ms)
+const INITIAL_DELAY = 150    // 倒してから最初の1歩までの遅延(ms)
 const REPEAT_INTERVAL = 200  // 連続移動の間隔(ms)
 
 // 方向名 → CSSクラスのマッピング
